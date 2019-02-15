@@ -19,11 +19,21 @@ impl State {
             state.add_compound_word(name, ops.into_rc_vec());
         });
     }
+}
 
-    /// Load language tier 1 into the dictionary
-    ///
-    /// Tier 1 contains low level native words that form the basic building blocks of the language
-    pub fn tier1(&mut self) {
-        self.add_native_word(".s", |state| println!("{:?}", state.stack));
+#[cfg(test)]
+mod tests {
+    use super::State;
+
+    #[test]
+    fn new_words() {
+        let mut state = State::new();
+        state.tier0();
+
+        state.run("123"); // push sentinel value on stack
+        state.run(": the-answer 42 ;"); // define new word
+        assert_eq!(state.pop_i32(), Some(123)); // make sure the word definition has no effect on the stack
+        state.run("the-answer"); // run the new word
+        assert_eq!(state.pop_i32(), Some(42));
     }
 }

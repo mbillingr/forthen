@@ -87,6 +87,10 @@ impl State {
         );
     }
 
+    pub fn clear_stack(&mut self) {
+        self.stack.clear();
+    }
+
     pub fn push(&mut self, obj: Object) {
         self.stack.push(obj);
     }

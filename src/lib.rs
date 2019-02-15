@@ -5,7 +5,9 @@ mod object_factory;
 mod parsing;
 mod rcstring;
 mod state;
+mod testing;
 
+pub use object::Object;
 pub use state::State;
 
 #[cfg(test)]
@@ -22,18 +24,6 @@ mod tests {
         assert_eq!(state.pop_i32(), Some(25));
         assert_eq!(state.pop_i32(), Some(0));
         assert_eq!(state.pop_i32(), Some(-10));
-    }
-
-    #[test]
-    fn new_words() {
-        let mut state = State::new();
-        state.tier0();
-
-        state.run("123"); // push sentinel value on stack
-        state.run(": the-answer 42 ;"); // define new word
-        assert_eq!(state.pop_i32(), Some(123)); // make sure the word definition has no effect on the stack
-        state.run("the-answer"); // run the new word
-        assert_eq!(state.pop_i32(), Some(42));
     }
 
     #[test]

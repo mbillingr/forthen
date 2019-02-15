@@ -26,6 +26,39 @@ impl std::fmt::Debug for Object {
     }
 }
 
+impl std::cmp::PartialEq for Object {
+    fn eq(&self, other: &Object) -> bool {
+        use Object::*;
+        match (self, other) {
+            (None, None) => true,
+            (NativeFunction(a), NativeFunction(b)) => a as *const _ == b as *const _,
+            (CompoundFunction(a), CompoundFunction(b)) => a == b,
+            (List(a), List(b)) => a == b,
+            (String(a), String(b)) => a == b,
+            (I32(a), I32(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl std::cmp::PartialEq<i32> for Object {
+    fn eq(&self, other: &i32) -> bool {
+        match self {
+            Object::I32(i) => i == other,
+            _ => false,
+        }
+    }
+}
+
+impl std::cmp::PartialEq<&str> for Object {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            Object::String(s) => &**s == other,
+            _ => false,
+        }
+    }
+}
+
 impl From<Rc<String>> for Object {
     fn from(s: Rc<String>) -> Object {
         Object::String(s)
