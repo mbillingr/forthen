@@ -1,28 +1,27 @@
-use std::cell::{RefCell, RefMut, Ref};
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
-
 
 #[derive(Clone)]
 enum Callable {
     Native(fn(&mut State)),
-
+    Compound(Rc<Vec<Object>>),
 }
 
 impl Callable {
     fn invoke(&self, state: &mut State) {
         match self {
             Callable::Native(fun) => fun(state),
+            Callable::Compound(ops) => state.run_sequence(&ops[..]),
         }
     }
 }
-
 
 #[derive(Clone)]
 enum Object {
     None,
     Callable(Callable),
-    List(Rc<RefCell<Vec<Object>>>),
+    List(Rc<Vec<Object>>),
     String(Rc<String>),
     I32(i32),
 }
@@ -55,21 +54,42 @@ impl Object {
     fn invoke(self, state: &mut State) {
         match self {
             Object::Callable(fun) => fun.invoke(state),
-            other => state.push(other)
+            other => state.push(other),
         }
     }
 
-    fn as_vec_mut(&mut self) -> RefMut<Vec<Object>> {
+    fn as_vec_mut(&mut self) -> &mut Vec<Object> {
         match self {
-            Object::List(vec) => vec.borrow_mut(),
+            Object::List(vec) => Rc::get_mut(vec).expect("Unable to mutate list"),
             _ => panic!("Type Error"),
         }
     }
 
-    fn as_vec(&self) -> Ref<Vec<Object>> {
+    fn as_slice(&self) -> &[Object] {
         match self {
-            Object::List(vec) => vec.borrow(),
+            Object::List(vec) => &vec,
             _ => panic!("Type Error"),
+        }
+    }
+
+    fn into_rc_vec(self) -> Rc<Vec<Object>> {
+        match self {
+            Object::List(vec) => vec,
+            _ => panic!("Type Error"),
+        }
+    }
+
+    fn into_rc_string(self) -> Rc<String> {
+        match self {
+            Object::String(rcs) => rcs,
+            _ => panic!("Type Error"),
+        }
+    }
+
+    fn try_into_i32(self) -> Option<i32> {
+        match self {
+            Object::I32(i) => Some(i),
+            _ => None,
         }
     }
 }
@@ -83,7 +103,6 @@ impl std::borrow::Borrow<str> for RcString {
         &self.0[..]
     }
 }
-
 
 /// will be responsible for things like string and small integer reuse
 #[derive(Debug)]
@@ -100,7 +119,7 @@ impl ObjectFactory {
 
     fn parse(&mut self, s: &str) -> Option<Object> {
         if s.starts_with('"') && s.ends_with('"') {
-            Some(self.get_string(&s[1..s.len()-1]).into())
+            Some(self.get_string(&s[1..s.len() - 1]).into())
         } else {
             s.parse::<i32>().ok().map(Object::from)
         }
@@ -117,7 +136,7 @@ impl ObjectFactory {
     }
 
     fn new_list(&self) -> Object {
-        Object::List(Rc::new(RefCell::new(vec![])))
+        Object::List(Rc::new(vec![]))
     }
 }
 
@@ -169,8 +188,8 @@ impl State {
     pub fn run(&mut self, input: &str) {
         self.input_tokens
             .extend(tokenize(input).map(str::to_string));
-        self.push(self.factory.new_list());
-        while let Some(token) = self.input_tokens.pop_front() {
+        self.begin_compile();
+        while let Some(token) = self.next_token() {
             let literal = self.factory.parse(&token);
             let word = self.dictionary.lookup(&token);
             match (literal, word) {
@@ -185,13 +204,17 @@ impl State {
             }
         }
         let ops = self.pop();
-        self.run_sequence(ops.as_vec().as_slice());
+        self.run_sequence(ops.as_slice());
     }
 
     fn run_sequence(&mut self, ops: &[Object]) {
         for op in ops {
             op.clone().invoke(self);
         }
+    }
+
+    fn next_token(&mut self) -> Option<String> {
+        self.input_tokens.pop_front()
     }
 
     fn push(&mut self, obj: Object) {
@@ -206,8 +229,64 @@ impl State {
         self.stack.last_mut().expect("Stack Empty")
     }
 
+    fn push_str(&mut self, s: &str) {
+        let obj = self.factory.get_string(s).into();
+        self.push(obj);
+    }
+
+    fn pop_i32(&mut self) -> Option<i32> {
+        self.pop().try_into_i32()
+    }
+
+    fn pop_str(&mut self) -> Option<String> {
+        let obj = self.pop();
+        let rcs = obj.into_rc_string();
+        match Rc::try_unwrap(rcs) {
+            Ok(s) => Some(s),
+            Err(rcs) => Some((*rcs).clone()),
+        }
+    }
+
+    fn begin_compile(&mut self) {
+        self.push(self.factory.new_list());
+    }
+
+    fn swap(&mut self) {
+        let a = self.pop();
+        let b = self.pop();
+        self.push(a);
+        self.push(b);
+    }
+
     pub fn tier0(&mut self) {
-        self.dictionary.insert(self.factory.get_string(".s"), Entry::Word(Object::Callable(Callable::Native(|state| println!("{:?}", state.stack)))));
+        self.dictionary.insert(
+            self.factory.get_string(".s"),
+            Entry::Word(Object::Callable(Callable::Native(|state| {
+                println!("{:?}", state.stack)
+            }))),
+        );
+
+        self.dictionary.insert(
+            self.factory.get_string(":"),
+            Entry::ParsingWord(Object::Callable(Callable::Native(|state| {
+                let name = state.next_token().expect("word name");
+                state.push_str(&name);
+                state.begin_compile();
+            }))),
+        );
+
+        self.dictionary.insert(
+            self.factory.get_string(";"),
+            Entry::ParsingWord(Object::Callable(Callable::Native(|state| {
+                let ops = state.pop();
+                let name = state.pop();
+
+                state.dictionary.insert(
+                    name.into_rc_string(),
+                    Entry::Word(Object::Callable(Callable::Compound(ops.into_rc_vec()))),
+                )
+            }))),
+        );
     }
 }
 
@@ -257,12 +336,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn literals() {
+        let mut state = State::new();
+        state.run("-10 0 25 \"hello forth!\" 2147483647");
+
+        assert_eq!(state.pop_i32(), Some(i32::max_value()));
+        assert_eq!(&state.pop_str().unwrap(), "hello forth!");
+        assert_eq!(state.pop_i32(), Some(25));
+        assert_eq!(state.pop_i32(), Some(0));
+        assert_eq!(state.pop_i32(), Some(-10));
+    }
+
+    #[test]
+    fn new_words() {
+        let mut state = State::new();
+        state.tier0();
+
+        state.run("123"); // push sentinel value on stack
+        state.run(": the-answer 42 ;"); // define new word
+        assert_eq!(state.pop_i32(), Some(123)); // make sure the word definition has no effect on the stack
+        state.run("the-answer"); // run the new word
+        assert_eq!(state.pop_i32(), Some(42));
+    }
+
+    #[test]
     fn it_works() {
         let mut state = State::new();
         state.tier0();
 
         state.run("3 5 \"hello forth!\" .s");
         state.run("3 5 \"hello forth!\" .s");
+
+        state.run(": the-answer 42 ;");
+        state.run("the-answer .s");
 
         println!("{:#?}", state);
 
