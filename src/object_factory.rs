@@ -25,7 +25,17 @@ impl ObjectFactory {
         }
     }
 
-    pub fn get_string(&mut self, s: &str) -> Rc<String> {
+    pub fn new_list(&self) -> Object {
+        Object::List(Rc::new(vec![]))
+    }
+}
+
+pub trait StringManager<S> {
+    fn get_string(&mut self, s: S) -> Rc<String>;
+}
+
+impl StringManager<&str> for ObjectFactory {
+    fn get_string(&mut self, s: &str) -> Rc<String> {
         if let Some(rcs) = self.strings.get(s) {
             rcs.clone().into()
         } else {
@@ -34,8 +44,17 @@ impl ObjectFactory {
             rcs
         }
     }
+}
 
-    pub fn new_list(&self) -> Object {
-        Object::List(Rc::new(vec![]))
+impl StringManager<Rc<String>> for ObjectFactory {
+    fn get_string(&mut self, rcs: Rc<String>) -> Rc<String> {
+        // todo: do we want to make sure rcs is inserted into self.strings?
+        rcs
+    }
+}
+
+impl StringManager<Object> for ObjectFactory {
+    fn get_string(&mut self, obj: Object) -> Rc<String> {
+        obj.into()
     }
 }

@@ -40,6 +40,7 @@ mod tests {
     fn it_works() {
         let mut state = State::new();
         state.tier0();
+        state.tier1();
 
         state.run("3 5 \"hello forth!\" .s");
         state.run("3 5 \"hello forth!\" .s");

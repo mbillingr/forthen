@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::dictionary::{Dictionary, Entry};
 use crate::object::Object;
-use crate::object_factory::ObjectFactory;
+use crate::object_factory::{ObjectFactory, StringManager};
 use crate::parsing::tokenize;
 
 #[derive(Debug)]
@@ -57,6 +57,36 @@ impl State {
         self.input_tokens.pop_front()
     }
 
+    pub fn add_native_word<S>(&mut self, name: S, func: fn(&mut State))
+    where
+        ObjectFactory: StringManager<S>,
+    {
+        self.dictionary.insert(
+            self.factory.get_string(name),
+            Entry::Word(Object::NativeFunction(func)),
+        );
+    }
+
+    pub fn add_native_parse_word<S>(&mut self, name: S, func: fn(&mut State))
+    where
+        ObjectFactory: StringManager<S>,
+    {
+        self.dictionary.insert(
+            self.factory.get_string(name),
+            Entry::ParsingWord(Object::NativeFunction(func)),
+        );
+    }
+
+    pub fn add_compound_word<S>(&mut self, name: S, ops: Rc<Vec<Object>>)
+    where
+        ObjectFactory: StringManager<S>,
+    {
+        self.dictionary.insert(
+            self.factory.get_string(name),
+            Entry::Word(Object::CompoundFunction(ops)),
+        );
+    }
+
     pub fn push(&mut self, obj: Object) {
         self.stack.push(obj);
     }
@@ -80,7 +110,7 @@ impl State {
 
     pub fn pop_str(&mut self) -> Option<String> {
         let obj = self.pop();
-        let rcs = obj.into_rc_string();
+        let rcs = obj.into();
         match Rc::try_unwrap(rcs) {
             Ok(s) => Some(s),
             Err(rcs) => Some((*rcs).clone()),

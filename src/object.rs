@@ -38,6 +38,24 @@ impl From<i32> for Object {
     }
 }
 
+impl From<Object> for Rc<String> {
+    fn from(obj: Object) -> Self {
+        match obj {
+            Object::String(rcs) => rcs,
+            _ => panic!("Type Error"),
+        }
+    }
+}
+
+impl From<Object> for i32 {
+    fn from(obj: Object) -> Self {
+        match obj {
+            Object::I32(i) => i,
+            _ => panic!("Type Error"),
+        }
+    }
+}
+
 impl Object {
     /// if the object is callable, call it otherwise push itself on stack.
     pub fn invoke(self, state: &mut State) {
@@ -70,14 +88,6 @@ impl Object {
     pub fn into_rc_vec(self) -> Rc<Vec<Object>> {
         match self {
             Object::List(vec) => vec,
-            _ => panic!("Type Error"),
-        }
-    }
-
-    /// convert into reference counted `String`
-    pub fn into_rc_string(self) -> Rc<String> {
-        match self {
-            Object::String(rcs) => rcs,
             _ => panic!("Type Error"),
         }
     }
