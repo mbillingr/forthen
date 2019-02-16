@@ -30,18 +30,7 @@ impl State {
             .extend(tokenize(input).map(str::to_string));
         self.begin_compile();
         while let Some(token) = self.next_token() {
-            let literal = self.factory.parse(&token);
-            let word = self.dictionary.lookup(&token);
-            match (literal, word) {
-                (None, None) => panic!("Unknown Word: {}", token),
-                (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
-                (Some(obj), None) => self.top_mut().as_vec_mut().push(obj),
-                (None, Some(Entry::Word(obj))) => {
-                    let obj = obj.clone();
-                    self.top_mut().as_vec_mut().push(obj);
-                }
-                (None, Some(Entry::ParsingWord(obj))) => obj.clone().invoke(self),
-            }
+            self.parse_token(&token);
         }
         let ops = self.pop();
         self.run_sequence(ops.as_slice());
@@ -55,6 +44,31 @@ impl State {
 
     pub fn next_token(&mut self) -> Option<String> {
         self.input_tokens.pop_front()
+    }
+
+    pub fn parse_until(&mut self, delimiter: &str) {
+        loop {
+            match self.next_token() {
+                None => panic!("Parse Error"),
+                Some(ref token) if token == delimiter => break,
+                Some(token) => self.parse_token(&token),
+            }
+        }
+    }
+
+    pub fn parse_token(&mut self, token: &str) {
+        let literal = self.factory.parse(&token);
+        let word = self.dictionary.lookup(&token);
+        match (literal, word) {
+            (None, None) => panic!("Unknown Word: {}", token),
+            (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
+            (Some(obj), None) => self.top_mut().as_vec_mut().push(obj),
+            (None, Some(Entry::Word(obj))) => {
+                let obj = obj.clone();
+                self.top_mut().as_vec_mut().push(obj);
+            }
+            (None, Some(Entry::ParsingWord(obj))) => obj.clone().invoke(self),
+        }
     }
 
     pub fn add_native_word<S>(&mut self, name: S, func: fn(&mut State))
@@ -78,12 +92,22 @@ impl State {
     }
 
     pub fn add_compound_word<S>(&mut self, name: S, ops: Rc<Vec<Object>>)
-    where
-        ObjectFactory: StringManager<S>,
+        where
+            ObjectFactory: StringManager<S>,
     {
         self.dictionary.insert(
             self.factory.get_string(name),
             Entry::Word(Object::CompoundFunction(ops)),
+        );
+    }
+
+    pub fn add_compound_parse_word<S>(&mut self, name: S, ops: Rc<Vec<Object>>)
+        where
+            ObjectFactory: StringManager<S>,
+    {
+        self.dictionary.insert(
+            self.factory.get_string(name),
+            Entry::ParsingWord(Object::CompoundFunction(ops)),
         );
     }
 

@@ -46,6 +46,12 @@ impl StringManager<&str> for ObjectFactory {
     }
 }
 
+impl StringManager<String> for ObjectFactory {
+    fn get_string(&mut self, s: String) -> Rc<String> {
+        self.get_string(s.as_str())
+    }
+}
+
 impl StringManager<Rc<String>> for ObjectFactory {
     fn get_string(&mut self, rcs: Rc<String>) -> Rc<String> {
         // todo: do we want to make sure rcs is inserted into self.strings?
