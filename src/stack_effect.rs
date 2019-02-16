@@ -1,5 +1,4 @@
-use std::collections::{HashMap, VecDeque};
-use std::rc::Rc;
+use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct StackValue {
@@ -99,75 +98,10 @@ impl StackEffect {
     }
 
     pub fn chain(self, rhs: StackEffect) -> Self {
-        // todo: I'm sure this function could be implemented *much* better...
-
         let mut stack = AbstractStack::new();
-
-        let mut inputs1 = VecDeque::new();
-        for inp in self.inputs.into_iter().rev() {
-            inputs1.push_front(stack.pop(inp));
-        }
-
-        let out0 = stack.len();
-
-        for out in self.outputs {
-            match out {
-                OutputValue::New(val) => stack.push_new(val),
-                OutputValue::Input(i) => stack.push(inputs1[i].clone()),
-                OutputValue::RepeatedOutput(o) => {
-                    let x = stack.get(out0 + o).clone();
-                    stack.push(x);
-                }
-            }
-        }
-
-        let mut inputs2 = VecDeque::new();
-        for inp in rhs.inputs.into_iter().rev() {
-            inputs2.push_front(stack.pop(inp));
-        }
-
-        let out0 = stack.len();
-
-        for out in rhs.outputs {
-            match out {
-                OutputValue::New(val) => stack.push_new(val),
-                OutputValue::Input(i) => stack.push(inputs2[i].clone()),
-                OutputValue::RepeatedOutput(o) => {
-                    let x = stack.get(out0 + o).clone();
-                    stack.push(x);
-                }
-            }
-        }
-
-        let inputs: Vec<_> = stack
-            .original
-            .iter()
-            .map(|x| match **x {
-                AbstractValue::Input(ref v, _) => v.clone(),
-                AbstractValue::New(_) => panic!("unexpected new value in inputs"),
-            })
-            .collect();
-
-        let mut seen = HashMap::new();
-        let mut outputs = vec![];
-        for out in stack.stack.iter() {
-            let ptr = &(**out) as *const _;
-
-            if seen.contains_key(&ptr) {
-                outputs.push(OutputValue::RepeatedOutput(seen[&ptr]));
-                continue;
-            }
-
-            seen.insert(ptr, outputs.len());
-            match **out {
-                AbstractValue::New(ref val) => outputs.push(OutputValue::New(val.clone())),
-                AbstractValue::Input(_, i) => {
-                    outputs.push(OutputValue::Input(inputs.len() - i - 1))
-                }
-            }
-        }
-
-        StackEffect { inputs, outputs }
+        stack.apply_effect(self);
+        stack.apply_effect(rhs);
+        stack.into_effect()
     }
 }
 
@@ -177,55 +111,122 @@ impl std::cmp::PartialEq for StackEffect {
     }
 }
 
-#[derive(Debug, Hash, Eq, PartialEq)]
-enum AbstractValue<T> {
-    Input(T, usize),
-    New(T),
+#[derive(Debug, Copy, Clone)]
+enum AbstractValue {
+    New(usize),
+    Input(usize),
 }
 
 struct AbstractStack {
-    values: Vec<Rc<AbstractValue<StackValue>>>,
-    original: VecDeque<Rc<AbstractValue<StackValue>>>,
-    stack: Vec<Rc<AbstractValue<StackValue>>>,
+    values: Vec<StackValue>,
+    inputs: VecDeque<usize>,
+    outputs: Vec<AbstractValue>,
 }
 
 impl AbstractStack {
     fn new() -> Self {
         AbstractStack {
             values: vec![],
-            original: VecDeque::new(),
-            stack: vec![],
+            inputs: VecDeque::new(),
+            outputs: vec![],
         }
     }
 
     fn len(&self) -> usize {
-        self.stack.len()
+        self.outputs.len()
     }
 
-    fn pop(&mut self, val: StackValue) -> Rc<AbstractValue<StackValue>> {
-        match self.stack.pop() {
+    fn pop(&mut self, val: StackValue) -> AbstractValue {
+        match self.outputs.pop() {
             Some(x) => x,
             None => {
-                let x = Rc::new(AbstractValue::Input(val, self.original.len()));
-                self.values.push(x.clone());
-                self.original.push_front(x.clone());
-                x
+                let v = self.values.len();
+                self.values.push(val);
+
+                let i = self.inputs.len();
+                self.inputs.push_front(v);
+
+                AbstractValue::Input(i)
             }
         }
     }
 
-    fn push(&mut self, x: Rc<AbstractValue<StackValue>>) {
-        self.stack.push(x);
+    fn push(&mut self, x: AbstractValue) {
+        self.outputs.push(x);
     }
 
     fn push_new(&mut self, x: StackValue) {
-        let x = Rc::new(AbstractValue::New(x));
-        self.values.push(x.clone());
-        self.push(x);
+        let v = self.values.len();
+        self.values.push(x);
+
+        self.push(AbstractValue::New(v));
     }
 
-    fn get(&mut self, i: usize) -> Rc<AbstractValue<StackValue>> {
-        self.stack[i].clone()
+    fn get(&mut self, i: usize) -> AbstractValue {
+        self.outputs[i]
+    }
+
+    fn apply_effect(&mut self, se: StackEffect) {
+        // pop inputs from stack
+        let mut inputs = VecDeque::new();
+        for val in se.inputs.into_iter().rev() {
+            inputs.push_front(self.pop(val));
+        }
+
+        let offset = self.len();
+
+        // push outputs on stack
+        for out in se.outputs {
+            match out {
+                OutputValue::New(val) => self.push_new(val),
+                OutputValue::Input(i) => self.push(inputs[i]),
+                OutputValue::RepeatedOutput(o) => {
+                    let x = self.get(offset + o);
+                    self.push(x);
+                }
+            }
+        }
+    }
+
+    fn into_effect(self) -> StackEffect {
+        let mut values: Vec<_> = self
+            .values
+            .into_iter()
+            .map(|val| OutputValue::New(val))
+            .collect();
+
+        let mut se = StackEffect::new();
+
+        se.inputs = self
+            .inputs
+            .iter()
+            .map(
+                |&i| match std::mem::replace(&mut values[i], OutputValue::Input(i)) {
+                    OutputValue::New(val) => val,
+                    _ => unreachable!(),
+                },
+            )
+            .collect();
+
+        for out in self.outputs {
+            let v = match out {
+                AbstractValue::Input(i) => self.inputs[i],
+                AbstractValue::New(v) => v,
+            };
+
+            let val = if let OutputValue::RepeatedOutput(o) = values[v] {
+                OutputValue::RepeatedOutput(o)
+            } else {
+                std::mem::replace(
+                    &mut values[v],
+                    OutputValue::RepeatedOutput(se.outputs.len()),
+                )
+            };
+
+            se.outputs.push(val);
+        }
+
+        se
     }
 }
 
@@ -319,6 +320,8 @@ mod tests {
         let drop = StackEffect::parse("(x -- )");
         let put = StackEffect::parse("(a b -- c a b)");
 
+        let drop3 = StackEffect::parse("(a b c -- )");
+
         assert_eq!(
             new.clone().chain(new.clone()),
             StackEffect::parse("( -- x y)")
@@ -396,5 +399,8 @@ mod tests {
                 .chain(swap.clone()),
             StackEffect::parse("(a b -- c b d b)")
         );
+
+        assert_eq!(drop3.clone().chain(swap.clone()), StackEffect::parse("(a b c d e -- b a)"));
+        assert_eq!(swap.clone().chain(drop3.clone()), StackEffect::parse("(c a b -- )"));
     }
 }
