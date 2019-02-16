@@ -6,11 +6,11 @@ impl State {
     /// Tier 1 contains low level native words that form the basic building blocks of the language
     pub fn tier1(&mut self) {
         // development tools
-        self.add_native_word(".s", |state| println!("{:?}", state.stack));
-        self.add_native_word(".", |state| println!("{:?}", state.pop()));
+        self.add_native_word(".s", "( -- )", |state| println!("{:?}", state.stack));
+        self.add_native_word(".", "( x -- )", |state| println!("{:?}", state.pop()));
 
         // stack operations
-        self.add_native_word("swap", State::swap);
+        self.add_native_word("swap", "(a b -- b a)", State::swap);
     }
 }
 

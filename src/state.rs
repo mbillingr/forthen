@@ -5,6 +5,7 @@ use crate::dictionary::{Dictionary, Entry};
 use crate::object::Object;
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::parsing::tokenize;
+use crate::stack_effect::IntoStackEffect;
 
 #[derive(Debug)]
 pub struct State {
@@ -71,13 +72,13 @@ impl State {
         }
     }
 
-    pub fn add_native_word<S>(&mut self, name: S, func: fn(&mut State))
+    pub fn add_native_word<S>(&mut self, name: S, stack_effect: impl IntoStackEffect, func: fn(&mut State))
     where
         ObjectFactory: StringManager<S>,
     {
         self.dictionary.insert(
             self.factory.get_string(name),
-            Entry::Word(Object::NativeFunction(func)),
+            Entry::Word(Object::NativeFunction(func, stack_effect.into_stack_effect())),
         );
     }
 
@@ -87,7 +88,7 @@ impl State {
     {
         self.dictionary.insert(
             self.factory.get_string(name),
-            Entry::ParsingWord(Object::NativeFunction(func)),
+            Entry::ParsingWord(Object::NativeFunction(func, "(acc -- acc)".into_stack_effect())),
         );
     }
 

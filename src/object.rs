@@ -1,12 +1,13 @@
 use std::rc::Rc;
 
+use crate::stack_effect::StackEffect;
 use crate::state::State;
 
 /// Dynamically typed value
 #[derive(Clone)]
 pub enum Object {
     None,
-    NativeFunction(fn(&mut State)),
+    NativeFunction(fn(&mut State), StackEffect),
     CompoundFunction(Rc<Vec<Object>>),
     List(Rc<Vec<Object>>),
     String(Rc<String>),
@@ -17,7 +18,7 @@ impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Object::None => write!(f, "None"),
-            Object::NativeFunction(_) => write!(f, "<native>"),
+            Object::NativeFunction(_, se) => write!(f, "<native {:?}>", se),
             Object::CompoundFunction(ops) => write!(f, "{:?}", ops),
             Object::List(list) => write!(f, "{:?}", list),
             Object::String(rcs) => write!(f, "{:?}", rcs),
@@ -31,7 +32,7 @@ impl std::cmp::PartialEq for Object {
         use Object::*;
         match (self, other) {
             (None, None) => true,
-            (NativeFunction(a), NativeFunction(b)) => a as *const _ == b as *const _,
+            (NativeFunction(a, _), NativeFunction(b, _)) => a as *const _ == b as *const _,
             (CompoundFunction(a), CompoundFunction(b)) => a == b,
             (List(a), List(b)) => a == b,
             (String(a), String(b)) => a == b,
@@ -93,7 +94,7 @@ impl Object {
     /// if the object is callable, call it otherwise push itself on stack.
     pub fn invoke(self, state: &mut State) {
         match self {
-            Object::NativeFunction(fun) => fun(state),
+            Object::NativeFunction(fun, _) => fun(state),
             Object::CompoundFunction(ops) => state.run_sequence(&ops[..]),
             other => state.push(other),
         }

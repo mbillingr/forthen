@@ -1,5 +1,27 @@
 use std::collections::{HashMap, VecDeque};
 
+pub trait IntoStackEffect {
+    fn into_stack_effect(self) -> StackEffect;
+}
+
+impl IntoStackEffect for StackEffect {
+    fn into_stack_effect(self) -> StackEffect {
+        self
+    }
+}
+
+impl IntoStackEffect for &str {
+    fn into_stack_effect(self) -> StackEffect {
+        StackEffect::parse(self)
+    }
+}
+
+impl IntoStackEffect for String {
+    fn into_stack_effect(self) -> StackEffect {
+        StackEffect::parse(&self)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct StackValue {
     name: String,

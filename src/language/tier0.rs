@@ -46,7 +46,7 @@ mod tests {
         let mut state = State::new();
         state.tier0();
 
-        state.add_native_word("-rot", |state| {
+        state.add_native_word("-rot", "(a b c -- c a b)",|state| {
             let a = state.pop();
             let b = state.pop();
             let c = state.pop();
@@ -54,7 +54,7 @@ mod tests {
             state.push(c);
             state.push(b);
         });
-        state.add_native_word(".s", |state| println!("{:?}", state.stack));
+        state.add_native_word(".s", "( -- )", |state| println!("{:?}", state.stack));
 
         state.run("123"); // push sentinel value on stack
         state.run("SYNTAX: the-answer 42 -rot ;"); // define new parse word that puts a number deep in the stack
