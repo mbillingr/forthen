@@ -92,8 +92,8 @@ impl State {
     }
 
     pub fn add_compound_word<S>(&mut self, name: S, ops: Rc<Vec<Object>>)
-        where
-            ObjectFactory: StringManager<S>,
+    where
+        ObjectFactory: StringManager<S>,
     {
         self.dictionary.insert(
             self.factory.get_string(name),
@@ -102,8 +102,8 @@ impl State {
     }
 
     pub fn add_compound_parse_word<S>(&mut self, name: S, ops: Rc<Vec<Object>>)
-        where
-            ObjectFactory: StringManager<S>,
+    where
+        ObjectFactory: StringManager<S>,
     {
         self.dictionary.insert(
             self.factory.get_string(name),

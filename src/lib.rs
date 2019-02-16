@@ -4,10 +4,12 @@ mod object;
 mod object_factory;
 mod parsing;
 mod rcstring;
+mod stack_effect;
 mod state;
 mod testing;
 
 pub use object::Object;
+pub use stack_effect::StackEffect;
 pub use state::State;
 
 #[cfg(test)]

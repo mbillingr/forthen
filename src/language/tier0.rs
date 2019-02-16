@@ -1,5 +1,3 @@
-use crate::dictionary::Entry;
-use crate::object::Object;
 use crate::state::State;
 
 impl State {
@@ -48,7 +46,7 @@ mod tests {
         let mut state = State::new();
         state.tier0();
 
-        state.add_native_word("-rot", |state|{
+        state.add_native_word("-rot", |state| {
             let a = state.pop();
             let b = state.pop();
             let c = state.pop();
@@ -61,8 +59,8 @@ mod tests {
         state.run("123"); // push sentinel value on stack
         state.run("SYNTAX: the-answer 42 -rot ;"); // define new parse word that puts a number deep in the stack
         state.run(": nop the-answer ; .s"); // define a new word
-        assert_eq!(state.pop_i32(), Some(42));  // the number should end up on the stack during word definition
-        state.run("nop");  // make sure the new word does nothing
-        assert_eq!(state.pop_i32(), Some(123)); 
+        assert_eq!(state.pop_i32(), Some(42)); // the number should end up on the stack during word definition
+        state.run("nop"); // make sure the new word does nothing
+        assert_eq!(state.pop_i32(), Some(123));
     }
 }

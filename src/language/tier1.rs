@@ -1,5 +1,3 @@
-use crate::dictionary::Entry;
-use crate::object::Object;
 use crate::state::State;
 
 impl State {
