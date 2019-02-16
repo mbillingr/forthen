@@ -36,7 +36,7 @@ impl std::cmp::PartialEq for OutputValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct StackEffect {
     inputs: Vec<StackValue>,
     outputs: Vec<OutputValue>,
@@ -90,10 +90,14 @@ impl StackEffect {
     }
 
     fn is_output_name(&self, out: &OutputValue, name: &str) -> bool {
+        self.get_output_name(out) == name
+    }
+
+    fn get_output_name<'a>(&'a self, out: &'a OutputValue) -> &'a str {
         match out {
-            OutputValue::New(val) => val.name == name,
-            OutputValue::Input(i) => self.inputs[*i].name == name,
-            OutputValue::RepeatedOutput(o) => self.is_output_name(&self.outputs[*o], name),
+            OutputValue::New(val) => &val.name,
+            OutputValue::Input(i) => &self.inputs[*i].name,
+            OutputValue::RepeatedOutput(o) => self.get_output_name(&self.outputs[*o]),
         }
     }
 
@@ -108,6 +112,20 @@ impl StackEffect {
 impl std::cmp::PartialEq for StackEffect {
     fn eq(&self, rhs: &Self) -> bool {
         self.inputs.len() == rhs.inputs.len() && self.outputs == rhs.outputs
+    }
+}
+
+impl std::fmt::Debug for StackEffect {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "(")?;
+        for i in &self.inputs {
+            write!(f, " {}", i.name)?;
+        }
+        write!(f, " --")?;
+        for o in &self.outputs {
+            write!(f, " {}", self.get_output_name(o))?;
+        }
+        write!(f, " )")
     }
 }
 
