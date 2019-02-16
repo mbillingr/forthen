@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct StackValue {
@@ -207,9 +207,22 @@ impl AbstractStack {
     }
 
     fn into_effect(self) -> StackEffect {
+        let mut name_counts = HashMap::new();
+
         let mut values: Vec<_> = self
             .values
             .into_iter()
+            .map(|mut val| {
+                let c = name_counts.entry(val.name.clone()).or_insert(0);
+                if *c == 0 {
+                    *c += 1;
+                    val
+                } else {
+                    val.name += &format!("{}", c);
+                    *c += 1;
+                    val
+                }
+            })
             .map(|val| OutputValue::New(val))
             .collect();
 
@@ -418,7 +431,13 @@ mod tests {
             StackEffect::parse("(a b -- c b d b)")
         );
 
-        assert_eq!(drop3.clone().chain(swap.clone()), StackEffect::parse("(a b c d e -- b a)"));
-        assert_eq!(swap.clone().chain(drop3.clone()), StackEffect::parse("(c a b -- )"));
+        assert_eq!(
+            drop3.clone().chain(swap.clone()),
+            StackEffect::parse("(a b c d e -- b a)")
+        );
+        assert_eq!(
+            swap.clone().chain(drop3.clone()),
+            StackEffect::parse("(c a b -- )")
+        );
     }
 }
