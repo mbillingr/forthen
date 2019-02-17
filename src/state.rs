@@ -66,15 +66,13 @@ impl State {
             (None, None) => panic!("Unknown Word: {}", token),
             (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
             (Some(obj), None) => self.top_mut().as_vec_mut().push(obj),
-            (None, Some(entry)) => {
-                match &entry.word {
-                    Word::Word(obj) => {
-                        let obj = Object::Word(entry.clone());
-                        self.top_mut().as_vec_mut().push(obj);
-                    }
-                    Word::ParsingWord(obj) => obj.clone().invoke(self),
+            (None, Some(entry)) => match &entry.word {
+                Word::Word(_) => {
+                    let obj = Object::Word(entry.clone());
+                    self.top_mut().as_vec_mut().push(obj);
                 }
-            }
+                Word::ParsingWord(obj) => obj.clone().invoke(self),
+            },
         }
     }
 
@@ -94,8 +92,8 @@ impl State {
                 word: Word::Word(Object::NativeFunction(
                     func,
                     stack_effect.into_stack_effect(),
-                ))
-            }
+                )),
+            },
         );
     }
 
@@ -108,9 +106,8 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::ParsingWord(Object::NativeFunction(func,
-                StackEffect::new_mod("acc")))
-            }
+                word: Word::ParsingWord(Object::NativeFunction(func, StackEffect::new_mod("acc"))),
+            },
         );
     }
 
@@ -127,10 +124,11 @@ impl State {
             name.clone(),
             Entry {
                 name,
-            word:Word::Word(Object::CompoundFunction(
-                ops,
-                stack_effect.into_stack_effect(),
-            ))},
+                word: Word::Word(Object::CompoundFunction(
+                    ops,
+                    stack_effect.into_stack_effect(),
+                )),
+            },
         );
     }
 
@@ -141,7 +139,10 @@ impl State {
         let name = self.factory.get_string(name);
         self.dictionary.insert(
             name.clone(),
-            Entry {name, word: Word::ParsingWord(Object::CompoundFunction(ops, StackEffect::new_mod("acc")))},
+            Entry {
+                name,
+                word: Word::ParsingWord(Object::CompoundFunction(ops, StackEffect::new_mod("acc"))),
+            },
         );
     }
 
@@ -149,21 +150,26 @@ impl State {
         let entry = self.dictionary.lookup(name);
         match entry {
             None => println!("{:>20}  undefined!", name),
-            Some(entry) => {
-                match entry.word.inner() {
-                    Object::NativeFunction(_, se) => println!("{:>20}   {:20}   <native>", entry.name, format!("{:?}", se)),
-                    Object::CompoundFunction(ops, se) => {
-                        let ops: Vec<_> = ops.iter()
-                            .map(|op| match op {
-                                Object::Word(entry) => format!("{}", entry.name),
-                                op => format!("{:?}", op),
-                            })
-                            .collect();
-                        println!("{:>20}   {:20}   {}", entry.name, format!("{:?}", se), ops.join(" "))
-                    },
-                    _ => println!("{:>20}  invalid word", name),
+            Some(entry) => match entry.word.inner() {
+                Object::NativeFunction(_, se) => {
+                    println!("{:>20}   {:20}   <native>", entry.name, format!("{:?}", se))
                 }
-
+                Object::CompoundFunction(ops, se) => {
+                    let ops: Vec<_> = ops
+                        .iter()
+                        .map(|op| match op {
+                            Object::Word(entry) => format!("{}", entry.name),
+                            op => format!("{:?}", op),
+                        })
+                        .collect();
+                    println!(
+                        "{:>20}   {:20}   {}",
+                        entry.name,
+                        format!("{:?}", se),
+                        ops.join(" ")
+                    )
+                }
+                _ => println!("{:>20}  invalid word", name),
             },
         }
     }
@@ -206,10 +212,24 @@ impl State {
         self.push(self.factory.new_list());
     }
 
+    pub fn dup(&mut self) {
+        let a = self.pop();
+        self.push(a.clone());
+        self.push(a);
+    }
+
     pub fn swap(&mut self) {
         let a = self.pop();
         let b = self.pop();
         self.push(a);
         self.push(b);
+    }
+
+    pub fn over(&mut self) {
+        let b = self.pop();
+        let a = self.pop();
+        self.push(a.clone());
+        self.push(b);
+        self.push(a);
     }
 }

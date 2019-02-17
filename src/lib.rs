@@ -41,12 +41,16 @@ mod tests {
         state.run("the-answer .s");
 
         state.run(": more-answers the-answer the-answer ;");
+        state.run(": 2dup over over ;");
+        state.run(": stackfun swap 2dup swap ;");
 
         println!("{:#?}", state);
 
         state.format_word(":");
         state.format_word("the-answer");
         state.format_word("more-answers");
+        state.format_word("2dup");
+        state.format_word("stackfun");
 
         panic!("panicking so we can see the output :)");
     }

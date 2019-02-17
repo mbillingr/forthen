@@ -13,7 +13,7 @@ pub enum Word {
 impl Word {
     pub fn inner(&self) -> &Object {
         match self {
-            Word::Word(obj) | Word::ParsingWord(obj) => obj
+            Word::Word(obj) | Word::ParsingWord(obj) => obj,
         }
     }
 }

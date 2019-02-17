@@ -10,7 +10,12 @@ impl State {
         self.add_native_word(".", "( x -- )", |state| println!("{:?}", state.pop()));
 
         // stack operations
+        self.add_native_word("dup", "(a -- a a)", State::dup);
+        self.add_native_word("drop", "(a -- )", |state| {
+            state.pop();
+        });
         self.add_native_word("swap", "(a b -- b a)", State::swap);
+        self.add_native_word("over", "(a b -- a b a)", State::over);
     }
 }
 
