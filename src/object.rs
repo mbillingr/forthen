@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::dictionary::WordId;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 
@@ -7,6 +8,7 @@ use crate::state::State;
 #[derive(Clone)]
 pub enum Object {
     None,
+    Word(WordId),
     NativeFunction(fn(&mut State), StackEffect),
     CompoundFunction(Rc<Vec<Object>>, StackEffect),
     List(Rc<Vec<Object>>),
@@ -18,6 +20,7 @@ impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Object::None => write!(f, "None"),
+            Object::Word(id) => write!(f, "{:?}", id),
             Object::NativeFunction(_, se) => write!(f, "<native {:?}>", se),
             Object::CompoundFunction(ops, se) => write!(f, "{:?} {:?}", se, ops),
             Object::List(list) => write!(f, "{:?}", list),
@@ -93,6 +96,7 @@ impl From<Object> for i32 {
 impl Object {
     pub fn get_stack_effect(&self) -> StackEffect {
         match self {
+            Object::Word(id) => id.word.inner().get_stack_effect(),
             Object::NativeFunction(_, se) => se.clone(),
             Object::CompoundFunction(_, se) => se.clone(),
             Object::None | Object::List(_) | Object::String(_) | Object::I32(_) => {
@@ -104,6 +108,7 @@ impl Object {
     /// if the object is callable, call it otherwise push itself on stack.
     pub fn invoke(self, state: &mut State) {
         match self {
+            Object::Word(id) => id.word.inner().clone().invoke(state),
             Object::NativeFunction(fun, _) => fun(state),
             Object::CompoundFunction(ops, _) => state.run_sequence(&ops[..]),
             other => state.push(other),

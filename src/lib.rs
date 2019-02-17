@@ -44,6 +44,10 @@ mod tests {
 
         println!("{:#?}", state);
 
+        state.format_word(":");
+        state.format_word("the-answer");
+        state.format_word("more-answers");
+
         panic!("panicking so we can see the output :)");
     }
 }

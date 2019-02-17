@@ -66,11 +66,10 @@ impl State {
             (None, None) => panic!("Unknown Word: {}", token),
             (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
             (Some(obj), None) => self.top_mut().as_vec_mut().push(obj),
-            (None, Some(id)) => {
-                let entry = self.dictionary.get(id);
+            (None, Some(entry)) => {
                 match &entry.word {
                     Word::Word(obj) => {
-                        let obj = obj.clone();
+                        let obj = Object::Word(entry.clone());
                         self.top_mut().as_vec_mut().push(obj);
                     }
                     Word::ParsingWord(obj) => obj.clone().invoke(self),
@@ -144,6 +143,29 @@ impl State {
             name.clone(),
             Entry {name, word: Word::ParsingWord(Object::CompoundFunction(ops, StackEffect::new_mod("acc")))},
         );
+    }
+
+    pub fn format_word(&self, name: &str) {
+        let entry = self.dictionary.lookup(name);
+        match entry {
+            None => println!("{:>20}  undefined!", name),
+            Some(entry) => {
+                match entry.word.inner() {
+                    Object::NativeFunction(_, se) => println!("{:>20}   {:20}   <native>", entry.name, format!("{:?}", se)),
+                    Object::CompoundFunction(ops, se) => {
+                        let ops: Vec<_> = ops.iter()
+                            .map(|op| match op {
+                                Object::Word(entry) => format!("{}", entry.name),
+                                op => format!("{:?}", op),
+                            })
+                            .collect();
+                        println!("{:>20}   {:20}   {}", entry.name, format!("{:?}", se), ops.join(" "))
+                    },
+                    _ => println!("{:>20}  invalid word", name),
+                }
+
+            },
+        }
     }
 
     pub fn clear_stack(&mut self) {

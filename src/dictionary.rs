@@ -10,40 +10,39 @@ pub enum Word {
     ParsingWord(Object),
 }
 
+impl Word {
+    pub fn inner(&self) -> &Object {
+        match self {
+            Word::Word(obj) | Word::ParsingWord(obj) => obj
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Entry {
     pub name: Rc<String>,
     pub word: Word,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct WordId(usize);
+pub type WordId = Rc<Entry>;
 
 #[derive(Debug)]
 pub struct Dictionary {
-    entries: Vec<Entry>,
-    words: HashMap<RcString, WordId>,
+    words: HashMap<RcString, Rc<Entry>>,
 }
 
 impl Dictionary {
     pub fn new() -> Self {
         Dictionary {
-            entries: Vec::new(),
             words: HashMap::new(),
         }
     }
 
     pub fn insert(&mut self, key: Rc<String>, val: Entry) {
-        let id = WordId(self.entries.len());
-        self.entries.push(val);
-        self.words.insert(key.into(), id);
+        self.words.insert(key.into(), Rc::new(val));
     }
 
-    pub fn get(&self, id: WordId) -> &Entry {
-        &self.entries[id.0]
-    }
-
-    pub fn lookup(&self, key: &str) -> Option<WordId> {
-        self.words.get(key).cloned()
+    pub fn lookup(&self, key: &str) -> Option<&WordId> {
+        self.words.get(key)
     }
 }
