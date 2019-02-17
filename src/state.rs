@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::rc::Rc;
 
+use crate::scope::CompilerScope;
 use crate::dictionary::{Dictionary, Entry, Word};
 use crate::object::Object;
 use crate::object_factory::{ObjectFactory, StringManager};
@@ -11,8 +12,10 @@ use crate::stack_effect::{IntoStackEffect, StackEffect};
 pub struct State {
     input_tokens: VecDeque<String>,
     pub stack: Vec<Object>,
+    pub frames: Vec<Object>,
     pub dictionary: Dictionary,
     pub factory: ObjectFactory,
+    pub scopes: Vec<CompilerScope>,
 }
 
 /// API
@@ -21,8 +24,10 @@ impl State {
         State {
             input_tokens: VecDeque::new(),
             stack: vec![],
+            frames: vec![],
             dictionary: Dictionary::new(),
             factory: ObjectFactory::new(),
+            scopes: vec![],
         }
     }
 
@@ -98,8 +103,8 @@ impl State {
     }
 
     pub fn add_native_parse_word<S>(&mut self, name: S, func: fn(&mut State))
-    where
-        ObjectFactory: StringManager<S>,
+        where
+            ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
         self.dictionary.insert(
@@ -107,6 +112,20 @@ impl State {
             Entry {
                 name,
                 word: Word::ParsingWord(Object::NativeFunction(func, StackEffect::new_mod("acc"))),
+            },
+        );
+    }
+
+    pub fn add_closure_parse_word<S>(&mut self, name: S, func: impl Fn(&mut State) + 'static)
+        where
+            ObjectFactory: StringManager<S>,
+    {
+        let name = self.factory.get_string(name);
+        self.dictionary.insert(
+            name.clone(),
+            Entry {
+                name,
+                word: Word::ParsingWord(Object::ClosureFunction(Rc::new(func), StackEffect::new_mod("acc"))),
             },
         );
     }

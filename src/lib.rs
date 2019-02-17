@@ -4,6 +4,7 @@ mod object;
 mod object_factory;
 mod parsing;
 mod rcstring;
+mod scope;
 mod stack_effect;
 mod state;
 mod testing;

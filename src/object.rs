@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use crate::dictionary::WordId;
+//use crate::scope::ScopeDef;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 
@@ -10,7 +11,9 @@ pub enum Object {
     None,
     Word(WordId),
     NativeFunction(fn(&mut State), StackEffect),
+    ClosureFunction(Rc<dyn Fn(&mut State)>, StackEffect),
     CompoundFunction(Rc<Vec<Object>>, StackEffect),
+    //ScopedFunction(Rc<Vec<Object>>, StackEffect, ScopeDef),
     List(Rc<Vec<Object>>),
     String(Rc<String>),
     I32(i32),
@@ -22,6 +25,7 @@ impl std::fmt::Debug for Object {
             Object::None => write!(f, "None"),
             Object::Word(id) => write!(f, "{:?}", id),
             Object::NativeFunction(_, se) => write!(f, "<native {:?}>", se),
+            Object::ClosureFunction(_, se) => write!(f, "<native {:?}>", se),
             Object::CompoundFunction(ops, se) => write!(f, "{:?} {:?}", se, ops),
             Object::List(list) => write!(f, "{:?}", list),
             Object::String(rcs) => write!(f, "{:?}", rcs),
@@ -36,6 +40,7 @@ impl std::cmp::PartialEq for Object {
         match (self, other) {
             (None, None) => true,
             (NativeFunction(a, _), NativeFunction(b, _)) => a as *const _ == b as *const _,
+            (ClosureFunction(a, _), ClosureFunction(b, _)) => &**a as *const _ == &**b as *const _,
             (CompoundFunction(a, _), CompoundFunction(b, _)) => a == b,
             (List(a), List(b)) => a == b,
             (String(a), String(b)) => a == b,
@@ -98,6 +103,7 @@ impl Object {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
             Object::NativeFunction(_, se) => se.clone(),
+            Object::ClosureFunction(_, se) => se.clone(),
             Object::CompoundFunction(_, se) => se.clone(),
             Object::None | Object::List(_) | Object::String(_) | Object::I32(_) => {
                 StackEffect::new_pushing("x")
@@ -110,6 +116,7 @@ impl Object {
         match self {
             Object::Word(id) => id.word.inner().clone().invoke(state),
             Object::NativeFunction(fun, _) => fun(state),
+            Object::ClosureFunction(fun, _) => fun(state),
             Object::CompoundFunction(ops, _) => state.run_sequence(&ops[..]),
             other => state.push(other),
         }
