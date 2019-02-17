@@ -5,7 +5,7 @@ use crate::dictionary::{Dictionary, Entry};
 use crate::object::Object;
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::parsing::tokenize;
-use crate::stack_effect::IntoStackEffect;
+use crate::stack_effect::{IntoStackEffect, StackEffect};
 
 #[derive(Debug)]
 pub struct State {
@@ -58,6 +58,8 @@ impl State {
     }
 
     pub fn parse_token(&mut self, token: &str) {
+        // todo: i don't know yet which takes up more time - parsing or lookup...
+        //       so we always do them both now, and future profiling will show which to do first in the future
         let literal = self.factory.parse(&token);
         let word = self.dictionary.lookup(&token);
         match (literal, word) {
@@ -72,13 +74,20 @@ impl State {
         }
     }
 
-    pub fn add_native_word<S>(&mut self, name: S, stack_effect: impl IntoStackEffect, func: fn(&mut State))
-    where
+    pub fn add_native_word<S>(
+        &mut self,
+        name: S,
+        stack_effect: impl IntoStackEffect,
+        func: fn(&mut State),
+    ) where
         ObjectFactory: StringManager<S>,
     {
         self.dictionary.insert(
             self.factory.get_string(name),
-            Entry::Word(Object::NativeFunction(func, stack_effect.into_stack_effect())),
+            Entry::Word(Object::NativeFunction(
+                func,
+                stack_effect.into_stack_effect(),
+            )),
         );
     }
 
@@ -88,17 +97,24 @@ impl State {
     {
         self.dictionary.insert(
             self.factory.get_string(name),
-            Entry::ParsingWord(Object::NativeFunction(func, "(acc -- acc)".into_stack_effect())),
+            Entry::ParsingWord(Object::NativeFunction(func, StackEffect::new_mod("acc"))),
         );
     }
 
-    pub fn add_compound_word<S>(&mut self, name: S, ops: Rc<Vec<Object>>)
-    where
+    pub fn add_compound_word<S>(
+        &mut self,
+        name: S,
+        stack_effect: impl IntoStackEffect,
+        ops: Rc<Vec<Object>>,
+    ) where
         ObjectFactory: StringManager<S>,
     {
         self.dictionary.insert(
             self.factory.get_string(name),
-            Entry::Word(Object::CompoundFunction(ops)),
+            Entry::Word(Object::CompoundFunction(
+                ops,
+                stack_effect.into_stack_effect(),
+            )),
         );
     }
 
@@ -108,7 +124,7 @@ impl State {
     {
         self.dictionary.insert(
             self.factory.get_string(name),
-            Entry::ParsingWord(Object::CompoundFunction(ops)),
+            Entry::ParsingWord(Object::CompoundFunction(ops, StackEffect::new_mod("acc"))),
         );
     }
 

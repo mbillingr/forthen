@@ -1,3 +1,4 @@
+use crate::stack_effect::StackEffect;
 use crate::state::State;
 
 impl State {
@@ -6,11 +7,20 @@ impl State {
     /// Tier 0 contains low level native words required for extending the language
     pub fn tier0(&mut self) {
         self.add_native_parse_word(":", |state| {
+            // todo: parse stack effect from word definition and compare against elided stack effect?
+
             let name = state.next_token().expect("word name");
+
             state.begin_compile();
             state.parse_until(";");
-            let ops = state.pop();
-            state.add_compound_word(name, ops.into_rc_vec());
+            let ops = state.pop().into_rc_vec();
+
+            let mut se = StackEffect::new();
+            for op in &*ops {
+                se = se.chain(op.get_stack_effect());
+            }
+
+            state.add_compound_word(name, se, ops);
         });
 
         self.add_native_parse_word("SYNTAX:", |state| {
@@ -39,6 +49,11 @@ mod tests {
         assert_eq!(state.pop_i32(), Some(123)); // make sure the word definition has no effect on the stack
         state.run("the-answer"); // run the new word
         assert_eq!(state.pop_i32(), Some(42));
+
+        state.run(": more-answers the-answer the-answer ;");
+        state.run("more-answers");
+        assert_eq!(state.pop_i32(), Some(42));
+        assert_eq!(state.pop_i32(), Some(42));
     }
 
     #[test]
@@ -46,7 +61,7 @@ mod tests {
         let mut state = State::new();
         state.tier0();
 
-        state.add_native_word("-rot", "(a b c -- c a b)",|state| {
+        state.add_native_word("-rot", "(a b c -- c a b)", |state| {
             let a = state.pop();
             let b = state.pop();
             let c = state.pop();

@@ -8,7 +8,7 @@ use crate::state::State;
 pub enum Object {
     None,
     NativeFunction(fn(&mut State), StackEffect),
-    CompoundFunction(Rc<Vec<Object>>),
+    CompoundFunction(Rc<Vec<Object>>, StackEffect),
     List(Rc<Vec<Object>>),
     String(Rc<String>),
     I32(i32),
@@ -19,7 +19,7 @@ impl std::fmt::Debug for Object {
         match self {
             Object::None => write!(f, "None"),
             Object::NativeFunction(_, se) => write!(f, "<native {:?}>", se),
-            Object::CompoundFunction(ops) => write!(f, "{:?}", ops),
+            Object::CompoundFunction(ops, se) => write!(f, "{:?} {:?}", se, ops),
             Object::List(list) => write!(f, "{:?}", list),
             Object::String(rcs) => write!(f, "{:?}", rcs),
             Object::I32(i) => write!(f, "{:?}", i),
@@ -33,7 +33,7 @@ impl std::cmp::PartialEq for Object {
         match (self, other) {
             (None, None) => true,
             (NativeFunction(a, _), NativeFunction(b, _)) => a as *const _ == b as *const _,
-            (CompoundFunction(a), CompoundFunction(b)) => a == b,
+            (CompoundFunction(a, _), CompoundFunction(b, _)) => a == b,
             (List(a), List(b)) => a == b,
             (String(a), String(b)) => a == b,
             (I32(a), I32(b)) => a == b,
@@ -91,11 +91,21 @@ impl From<Object> for i32 {
 }
 
 impl Object {
+    pub fn get_stack_effect(&self) -> StackEffect {
+        match self {
+            Object::NativeFunction(_, se) => se.clone(),
+            Object::CompoundFunction(_, se) => se.clone(),
+            Object::None | Object::List(_) | Object::String(_) | Object::I32(_) => {
+                StackEffect::new_pushing("x")
+            }
+        }
+    }
+
     /// if the object is callable, call it otherwise push itself on stack.
     pub fn invoke(self, state: &mut State) {
         match self {
             Object::NativeFunction(fun, _) => fun(state),
-            Object::CompoundFunction(ops) => state.run_sequence(&ops[..]),
+            Object::CompoundFunction(ops, _) => state.run_sequence(&ops[..]),
             other => state.push(other),
         }
     }

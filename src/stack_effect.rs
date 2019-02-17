@@ -72,6 +72,22 @@ impl StackEffect {
         }
     }
 
+    /// simple stack effect of pushing a value on the stack
+    pub fn new_pushing(varname: &str) -> Self {
+        StackEffect {
+            inputs: vec![],
+            outputs: vec![OutputValue::New(StackValue::new(varname))],
+        }
+    }
+
+    /// simple stack effect of modifying a value on the stack
+    pub fn new_mod(varname: &str) -> Self {
+        StackEffect {
+            inputs: vec![StackValue::new(varname)],
+            outputs: vec![OutputValue::Input(0)],
+        }
+    }
+
     pub fn parse(input: &str) -> Self {
         let mut se = StackEffect::new();
 
