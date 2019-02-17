@@ -7,7 +7,7 @@ impl State {
     /// Tier 0 contains low level native words required for extending the language
     pub fn tier0(&mut self) {
         self.add_native_parse_word(":", |state| {
-            // todo: parse stack effect from word definition and compare against elided stack effect?
+            // todo: parse stack effect from word definition and compare against derived stack effect?
 
             let name = state.next_token().expect("word name");
 

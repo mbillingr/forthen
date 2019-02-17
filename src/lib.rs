@@ -40,6 +40,8 @@ mod tests {
         state.run(": the-answer 42 ;");
         state.run("the-answer .s");
 
+        state.run(": more-answers the-answer the-answer ;");
+
         println!("{:#?}", state);
 
         panic!("panicking so we can see the output :)");

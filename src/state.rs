@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use crate::dictionary::{Dictionary, Entry};
+use crate::dictionary::{Dictionary, Entry, Word};
 use crate::object::Object;
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::parsing::tokenize;
@@ -66,11 +66,16 @@ impl State {
             (None, None) => panic!("Unknown Word: {}", token),
             (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
             (Some(obj), None) => self.top_mut().as_vec_mut().push(obj),
-            (None, Some(Entry::Word(obj))) => {
-                let obj = obj.clone();
-                self.top_mut().as_vec_mut().push(obj);
+            (None, Some(id)) => {
+                let entry = self.dictionary.get(id);
+                match &entry.word {
+                    Word::Word(obj) => {
+                        let obj = obj.clone();
+                        self.top_mut().as_vec_mut().push(obj);
+                    }
+                    Word::ParsingWord(obj) => obj.clone().invoke(self),
+                }
             }
-            (None, Some(Entry::ParsingWord(obj))) => obj.clone().invoke(self),
         }
     }
 
@@ -82,12 +87,16 @@ impl State {
     ) where
         ObjectFactory: StringManager<S>,
     {
+        let name = self.factory.get_string(name);
         self.dictionary.insert(
-            self.factory.get_string(name),
-            Entry::Word(Object::NativeFunction(
-                func,
-                stack_effect.into_stack_effect(),
-            )),
+            name.clone(),
+            Entry {
+                name,
+                word: Word::Word(Object::NativeFunction(
+                    func,
+                    stack_effect.into_stack_effect(),
+                ))
+            }
         );
     }
 
@@ -95,9 +104,14 @@ impl State {
     where
         ObjectFactory: StringManager<S>,
     {
+        let name = self.factory.get_string(name);
         self.dictionary.insert(
-            self.factory.get_string(name),
-            Entry::ParsingWord(Object::NativeFunction(func, StackEffect::new_mod("acc"))),
+            name.clone(),
+            Entry {
+                name,
+                word: Word::ParsingWord(Object::NativeFunction(func,
+                StackEffect::new_mod("acc")))
+            }
         );
     }
 
@@ -109,12 +123,15 @@ impl State {
     ) where
         ObjectFactory: StringManager<S>,
     {
+        let name = self.factory.get_string(name);
         self.dictionary.insert(
-            self.factory.get_string(name),
-            Entry::Word(Object::CompoundFunction(
+            name.clone(),
+            Entry {
+                name,
+            word:Word::Word(Object::CompoundFunction(
                 ops,
                 stack_effect.into_stack_effect(),
-            )),
+            ))},
         );
     }
 
@@ -122,9 +139,10 @@ impl State {
     where
         ObjectFactory: StringManager<S>,
     {
+        let name = self.factory.get_string(name);
         self.dictionary.insert(
-            self.factory.get_string(name),
-            Entry::ParsingWord(Object::CompoundFunction(ops, StackEffect::new_mod("acc"))),
+            name.clone(),
+            Entry {name, word: Word::ParsingWord(Object::CompoundFunction(ops, StackEffect::new_mod("acc")))},
         );
     }
 
