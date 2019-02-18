@@ -4,15 +4,17 @@ use crate::dictionary::WordId;
 //use crate::scope::ScopeDef;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
+use crate::vm::Quotation;
 
 /// Dynamically typed value
 #[derive(Clone)]
 pub enum Object {
     None,
     Word(WordId),
+    Quotation(Rc<Quotation>, StackEffect),
     NativeFunction(fn(&mut State), StackEffect),
-    ClosureFunction(Rc<dyn Fn(&mut State)>, StackEffect),
-    CompoundFunction(Rc<Vec<Object>>, StackEffect),
+    NativeClosure(Rc<dyn Fn(&mut State)>, StackEffect),
+    //CompoundFunction(Rc<Vec<Object>>, StackEffect),
     //ScopedFunction(Rc<Vec<Object>>, StackEffect, ScopeDef),
     List(Rc<Vec<Object>>),
     String(Rc<String>),
@@ -24,9 +26,9 @@ impl std::fmt::Debug for Object {
         match self {
             Object::None => write!(f, "None"),
             Object::Word(id) => write!(f, "{:?}", id),
+            Object::Quotation(_, se) => write!(f, "<quotation {:?}>", se),
             Object::NativeFunction(_, se) => write!(f, "<native {:?}>", se),
-            Object::ClosureFunction(_, se) => write!(f, "<native {:?}>", se),
-            Object::CompoundFunction(ops, se) => write!(f, "{:?} {:?}", se, ops),
+            Object::NativeClosure(_, se) => write!(f, "<closure {:?}>", se),
             Object::List(list) => write!(f, "{:?}", list),
             Object::String(rcs) => write!(f, "{:?}", rcs),
             Object::I32(i) => write!(f, "{:?}", i),
@@ -40,8 +42,8 @@ impl std::cmp::PartialEq for Object {
         match (self, other) {
             (None, None) => true,
             (NativeFunction(a, _), NativeFunction(b, _)) => a as *const _ == b as *const _,
-            (ClosureFunction(a, _), ClosureFunction(b, _)) => &**a as *const _ == &**b as *const _,
-            (CompoundFunction(a, _), CompoundFunction(b, _)) => a == b,
+            (NativeClosure(a, _), NativeClosure(b, _)) => &**a as *const _ == &**b as *const _,
+            (Quotation(a, _), Quotation(b, _)) => a == b,
             (List(a), List(b)) => a == b,
             (String(a), String(b)) => a == b,
             (I32(a), I32(b)) => a == b,
@@ -102,23 +104,21 @@ impl Object {
     pub fn get_stack_effect(&self) -> StackEffect {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
+            Object::Quotation(_, se) => se.clone(),
             Object::NativeFunction(_, se) => se.clone(),
-            Object::ClosureFunction(_, se) => se.clone(),
-            Object::CompoundFunction(_, se) => se.clone(),
-            Object::None | Object::List(_) | Object::String(_) | Object::I32(_) => {
-                StackEffect::new_pushing("x")
-            }
+            Object::NativeClosure(_, se) => se.clone(),
+            other => panic!("Type Error"),
         }
     }
 
     /// if the object is callable, call it otherwise push itself on stack.
-    pub fn invoke(self, state: &mut State) {
+    pub fn invoke(&self, state: &mut State) {
         match self {
-            Object::Word(id) => id.word.inner().clone().invoke(state),
+            Object::Word(id) => id.word.inner().invoke(state),
+            Object::Quotation(quot, _) => quot.run(state),
             Object::NativeFunction(fun, _) => fun(state),
-            Object::ClosureFunction(fun, _) => fun(state),
-            Object::CompoundFunction(ops, _) => state.run_sequence(&ops[..]),
-            other => state.push(other),
+            Object::NativeClosure(fun, _) => fun(state),
+            other => panic!("Type Error"),
         }
     }
 
@@ -153,6 +153,20 @@ impl Object {
         match self {
             Object::I32(i) => Some(i),
             _ => None,
+        }
+    }
+
+    pub fn into_rc_quotation(self) -> Rc<Quotation> {
+        match self {
+            Object::Quotation(vec, _) => vec,
+            _ => panic!("Type Error"),
+        }
+    }
+
+    pub fn as_quotation_mut(&mut self) -> &mut Quotation {
+        match self {
+            Object::Quotation(vec, _) => Rc::get_mut(vec).expect("Unable to mutate list"),
+            _ => panic!("Type Error"),
         }
     }
 }

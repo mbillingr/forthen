@@ -8,6 +8,7 @@ mod scope;
 mod stack_effect;
 mod state;
 mod testing;
+mod vm;
 
 pub use object::Object;
 pub use stack_effect::StackEffect;

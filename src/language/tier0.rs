@@ -4,20 +4,22 @@ use crate::scope::CompilerScope;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 use crate::object::Object;
+use crate::vm::{Opcode, Quotation};
 
 impl State {
     /// Load language tier 0 into the dictionary
     ///
     /// Tier 0 contains low level native words required for extending the language
     pub fn tier0(&mut self) {
-        self.add_native_parse_word(";", |_| panic!("Parse Error"));
+        self.add_native_parse_word(";", |_| panic!("Unexpected Delimiter"));
+        self.add_native_parse_word("]", |_| panic!("Unexpected Delimiter"));
 
         self.add_native_parse_word("SYNTAX:", |state| {
             let name = state.next_token().expect("word name");
             state.begin_compile();
             state.parse_until(";");
-            let ops = state.pop();
-            state.add_compound_parse_word(name, ops.into_rc_vec());
+            let obj = state.pop();
+            state.add_compound_parse_word(name, obj.into_rc_quotation());
         });
 
         self.add_native_parse_word(":", |state| {
@@ -27,14 +29,30 @@ impl State {
 
             state.begin_compile();
             state.parse_until(";");
-            let ops = state.pop().into_rc_vec();
+            let quot = state.pop().into_rc_quotation();
 
             let mut se = StackEffect::new();
-            for op in &*ops {
-                se = se.chain(op.get_stack_effect());
+            for op in &quot.ops {
+                se = se.chain(op.stack_effect());
             }
 
-            state.add_compound_word(name, se, ops);
+            state.add_compound_word(name, se, quot);
+        });
+
+        self.add_native_parse_word("[", |state| {
+            // todo: parse stack effect from word definition and compare against derived stack effect?
+
+            state.begin_compile();
+            state.parse_until("]");
+            let quot = state.pop().into_rc_quotation();
+
+            let mut se = StackEffect::new();
+            for op in &quot.ops {
+                se = se.chain(op.stack_effect());
+            }
+
+            let obj = Object::Quotation(quot, se);
+            state.top_mut().as_quotation_mut().ops.push(Opcode::Push(obj));
         });
 
         self.add_native_word("push_frame", "(n -- )", |state| {
@@ -71,9 +89,9 @@ impl State {
 
             let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
-            let instructions = state.top_mut().as_vec_mut();
-            instructions.push(Object::I32(i));
-            instructions.push(Object::Word(store.clone()));
+            let instructions = state.top_mut().as_quotation_mut();
+            instructions.ops.push(Opcode::push_i32(i));
+            instructions.ops.push(Opcode::call_word(store.clone()));
         });
 
         self.add_closure_parse_word("get", move |state| {
@@ -81,9 +99,9 @@ impl State {
 
             let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
-            let instructions = state.top_mut().as_vec_mut();
-            instructions.push(Object::I32(i));
-            instructions.push(Object::Word(fetch.clone()));
+            let instructions = state.top_mut().as_quotation_mut();
+            instructions.ops.push(Opcode::push_i32(i));
+            instructions.ops.push(Opcode::call_word(fetch.clone()));
         });
 
         self.add_closure_parse_word("::", move |state| {
@@ -98,17 +116,25 @@ impl State {
 
             let scope = state.scopes.pop().unwrap();
             let n_vars = scope.len() as i32;
-            let mut ops = vec![Object::I32(n_vars), Object::Word(push_frame.clone())];
-            ops.extend(Rc::try_unwrap(state.pop().into_rc_vec()).unwrap());
-            ops.push(Object::I32(n_vars));
-            ops.push(Object::Word(pop_frame.clone()));
+
+            let mut quot = Quotation::new();
+            quot.ops.push(Opcode::push_i32(n_vars));
+            quot.ops.push(Opcode::call_word(push_frame.clone()));
+            quot.ops.extend(Rc::try_unwrap(state.pop().into_rc_quotation()).unwrap().ops);
+            quot.ops.push(Opcode::push_i32(n_vars));
+            quot.ops.push(Opcode::call_word(pop_frame.clone()));
 
             let mut se = StackEffect::new();
-            for op in &*ops {
-                se = se.chain(op.get_stack_effect());
+            for op in &quot.ops {
+                se = se.chain(op.stack_effect());
             }
 
-            state.add_compound_word(name, se, Rc::new(ops));
+            state.add_compound_word(name, se, Rc::new(quot));
+        });
+
+        self.add_native_word("call", "(func -- ?)", |state| {
+            let func = state.pop();
+            func.invoke(state);
         });
     }
 }
@@ -189,6 +215,22 @@ mod tests {
         assert_eq!(state.pop_str().unwrap(), "b");
 
         state.run("0 drop");
+        assert_eq!(state.pop_i32(), Some(123));
+    }
+
+    #[test]
+    fn quotations() {
+        let mut state = State::new();
+        state.tier0();
+
+        state.run("123"); // push sentinel value on stack
+
+        state.run("[ 42 ]");
+        assert_eq!(state.pop_i32(), None);
+
+        state.run("[ 42 ] call");
+        assert_eq!(state.pop_i32(), Some(42));
+
         assert_eq!(state.pop_i32(), Some(123));
     }
 }

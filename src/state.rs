@@ -7,6 +7,7 @@ use crate::object::Object;
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::parsing::tokenize;
 use crate::stack_effect::{IntoStackEffect, StackEffect};
+use crate::vm::{Opcode, Quotation};
 
 #[derive(Debug)]
 pub struct State {
@@ -38,8 +39,8 @@ impl State {
         while let Some(token) = self.next_token() {
             self.parse_token(&token);
         }
-        let ops = self.pop();
-        self.run_sequence(ops.as_slice());
+        let quot = self.pop().into_rc_quotation();
+        quot.run(self)
     }
 
     pub fn run_sequence(&mut self, ops: &[Object]) {
@@ -70,11 +71,11 @@ impl State {
         match (literal, word) {
             (None, None) => panic!("Unknown Word: {}", token),
             (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
-            (Some(obj), None) => self.top_mut().as_vec_mut().push(obj),
+            (Some(obj), None) => self.top_mut().as_quotation_mut().ops.push(Opcode::Push(obj)),
             (None, Some(entry)) => match &entry.word {
                 Word::Word(_) => {
-                    let obj = Object::Word(entry.clone());
-                    self.top_mut().as_vec_mut().push(obj);
+                    let op = Opcode::call_word(entry.clone());
+                    self.top_mut().as_quotation_mut().ops.push(op);
                 }
                 Word::ParsingWord(obj) => obj.clone().invoke(self),
             },
@@ -125,7 +126,7 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::ParsingWord(Object::ClosureFunction(Rc::new(func), StackEffect::new_mod("acc"))),
+                word: Word::ParsingWord(Object::NativeClosure(Rc::new(func), StackEffect::new_mod("acc"))),
             },
         );
     }
@@ -134,7 +135,7 @@ impl State {
         &mut self,
         name: S,
         stack_effect: impl IntoStackEffect,
-        ops: Rc<Vec<Object>>,
+        quot: Rc<Quotation>,
     ) where
         ObjectFactory: StringManager<S>,
     {
@@ -143,15 +144,15 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::Word(Object::CompoundFunction(
-                    ops,
+                word: Word::Word(Object::Quotation(
+                    quot,
                     stack_effect.into_stack_effect(),
                 )),
             },
         );
     }
 
-    pub fn add_compound_parse_word<S>(&mut self, name: S, ops: Rc<Vec<Object>>)
+    pub fn add_compound_parse_word<S>(&mut self, name: S, quot: Rc<Quotation>)
     where
         ObjectFactory: StringManager<S>,
     {
@@ -160,7 +161,7 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::ParsingWord(Object::CompoundFunction(ops, StackEffect::new_mod("acc"))),
+                word: Word::ParsingWord(Object::Quotation(quot, StackEffect::new_mod("acc"))),
             },
         );
     }
@@ -173,12 +174,13 @@ impl State {
                 Object::NativeFunction(_, se) => {
                     println!("{:>20}   {:20}   <native>", entry.name, format!("{:?}", se))
                 }
-                Object::CompoundFunction(ops, se) => {
-                    let ops: Vec<_> = ops
+                Object::Quotation(quot, se) => {
+                    let ops: Vec<_> = quot.ops
                         .iter()
                         .map(|op| match op {
-                            Object::Word(entry) => format!("{}", entry.name),
-                            op => format!("{:?}", op),
+                            Opcode::Call(Object::Word(entry)) => format!("{}", entry.name),
+                            Opcode::Call(obj) |
+                            Opcode::Push(obj) => format!("{:?}", obj),
                         })
                         .collect();
                     println!(
@@ -228,7 +230,7 @@ impl State {
     }
 
     pub fn begin_compile(&mut self) {
-        self.push(self.factory.new_list());
+        self.push(Object::Quotation(Rc::new(Quotation::new()), StackEffect::new()));
     }
 
     pub fn dup(&mut self) {
