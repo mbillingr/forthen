@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
+use crate::object::Object;
 use crate::scope::CompilerScope;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
-use crate::object::Object;
 use crate::vm::{Opcode, Quotation};
 
 impl State {
@@ -52,7 +52,11 @@ impl State {
             }
 
             let obj = Object::Quotation(quot, se);
-            state.top_mut().as_quotation_mut().ops.push(Opcode::Push(obj));
+            state
+                .top_mut()
+                .as_quotation_mut()
+                .ops
+                .push(Opcode::Push(obj));
         });
 
         self.add_native_word("push_frame", "(n -- )", |state| {
@@ -120,7 +124,8 @@ impl State {
             let mut quot = Quotation::new();
             quot.ops.push(Opcode::push_i32(n_vars));
             quot.ops.push(Opcode::call_word(push_frame.clone()));
-            quot.ops.extend(Rc::try_unwrap(state.pop().into_rc_quotation()).unwrap().ops);
+            quot.ops
+                .extend(Rc::try_unwrap(state.pop().into_rc_quotation()).unwrap().ops);
             quot.ops.push(Opcode::push_i32(n_vars));
             quot.ops.push(Opcode::call_word(pop_frame.clone()));
 
@@ -132,16 +137,29 @@ impl State {
             state.add_compound_word(name, se, Rc::new(quot));
         });
 
-        self.add_native_word("call", "(func -- ?)", |state| {
+        // todo: find a way to deal with stack effects of words calling quotations
+
+        self.add_native_word("call", "(? func -- ?)", |state| {
             let func = state.pop();
             func.invoke(state);
         });
+
+        self.add_native_word("if", "(? cond if el -- ?)", |state| {
+            let else_branch = state.pop();
+            let if_branch = state.pop();
+            let cond = state.pop().try_into_bool().unwrap();
+            if cond {
+                if_branch.invoke(state);
+            } else {
+                else_branch.invoke(state);
+            }
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::State;
+    use super::*;
 
     #[test]
     fn new_words() {
@@ -232,5 +250,34 @@ mod tests {
         assert_eq!(state.pop_i32(), Some(42));
 
         assert_eq!(state.pop_i32(), Some(123));
+    }
+
+    #[test]
+    fn if_word() {
+        let mut state = State::new();
+        state.tier0();
+
+        state.add_native_word("true", "( -- b)", |state| state.push(Object::True));
+        state.add_native_word("false", "( -- b)", |state| state.push(Object::False));
+
+        state.run("123"); // push sentinel value on stack
+
+        state.run("false [ \"yes\" ] [ \"no\" ] if");
+        assert_eq!(state.pop_str().unwrap(), "no");
+
+        state.run("true [ \"yes\" ] [ \"no\" ] if");
+        assert_eq!(state.pop_str().unwrap(), "yes");
+
+        state.run(": yes-or-no [ \"yes\" ] [ \"no\" ] if ;");
+
+        state.run("false yes-or-no");
+        assert_eq!(state.pop_str().unwrap(), "no");
+
+        state.run("true yes-or-no");
+        assert_eq!(state.pop_str().unwrap(), "yes");
+
+        state.format_word("if");
+        state.format_word("yes-or-no");
+        panic!()
     }
 }

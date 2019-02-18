@@ -1,7 +1,7 @@
 use crate::dictionary::WordId;
+use crate::object::Object;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
-use crate::object::Object;
 
 #[derive(Debug, PartialEq)]
 pub enum Opcode {
@@ -24,7 +24,7 @@ impl Opcode {
         match self {
             Push(_) => StackEffect::new_pushing("x"),
             Call(obj) => obj.get_stack_effect(),
-            TailRecurse => unimplemented!()
+            TailRecurse => unimplemented!(),
         }
     }
 }
@@ -36,10 +36,8 @@ pub struct Quotation {
 }
 
 impl Quotation {
-    pub fn new(/*ops: Vec<Opcode>, se: StackEffect*/) -> Self {
-        Quotation {
-            ops: vec![]
-        }
+    pub fn new() -> Self {
+        Quotation { ops: vec![] }
     }
 
     pub fn run(&self, state: &mut State) {
@@ -49,10 +47,10 @@ impl Quotation {
                 match op {
                     Push(obj) => state.push(obj.clone()),
                     Call(obj) => obj.invoke(state),
-                    TailRecurse => continue 'outer
+                    TailRecurse => continue 'outer,
                 }
             }
-            break
+            break;
         }
     }
 }

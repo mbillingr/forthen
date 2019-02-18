@@ -1,11 +1,11 @@
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use crate::scope::CompilerScope;
 use crate::dictionary::{Dictionary, Entry, Word};
 use crate::object::Object;
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::parsing::tokenize;
+use crate::scope::CompilerScope;
 use crate::stack_effect::{IntoStackEffect, StackEffect};
 use crate::vm::{Opcode, Quotation};
 
@@ -71,7 +71,11 @@ impl State {
         match (literal, word) {
             (None, None) => panic!("Unknown Word: {}", token),
             (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
-            (Some(obj), None) => self.top_mut().as_quotation_mut().ops.push(Opcode::Push(obj)),
+            (Some(obj), None) => self
+                .top_mut()
+                .as_quotation_mut()
+                .ops
+                .push(Opcode::Push(obj)),
             (None, Some(entry)) => match &entry.word {
                 Word::Word(_) => {
                     let op = Opcode::call_word(entry.clone());
@@ -104,8 +108,8 @@ impl State {
     }
 
     pub fn add_native_parse_word<S>(&mut self, name: S, func: fn(&mut State))
-        where
-            ObjectFactory: StringManager<S>,
+    where
+        ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
         self.dictionary.insert(
@@ -118,15 +122,18 @@ impl State {
     }
 
     pub fn add_closure_parse_word<S>(&mut self, name: S, func: impl Fn(&mut State) + 'static)
-        where
-            ObjectFactory: StringManager<S>,
+    where
+        ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
         self.dictionary.insert(
             name.clone(),
             Entry {
                 name,
-                word: Word::ParsingWord(Object::NativeClosure(Rc::new(func), StackEffect::new_mod("acc"))),
+                word: Word::ParsingWord(Object::NativeClosure(
+                    Rc::new(func),
+                    StackEffect::new_mod("acc"),
+                )),
             },
         );
     }
@@ -144,10 +151,7 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::Word(Object::Quotation(
-                    quot,
-                    stack_effect.into_stack_effect(),
-                )),
+                word: Word::Word(Object::Quotation(quot, stack_effect.into_stack_effect())),
             },
         );
     }
@@ -172,22 +176,22 @@ impl State {
             None => println!("{:>20}  undefined!", name),
             Some(entry) => match entry.word.inner() {
                 Object::NativeFunction(_, se) => {
-                    println!("{:>20}   {:20}   <native>", entry.name, format!("{:?}", se))
+                    println!("{:>20}   {:20}   <native>", entry.name, format!("{}", se))
                 }
                 Object::Quotation(quot, se) => {
-                    let ops: Vec<_> = quot.ops
+                    let ops: Vec<_> = quot
+                        .ops
                         .iter()
                         .map(|op| match op {
                             Opcode::Call(Object::Word(entry)) => format!("{}", entry.name),
-                            Opcode::Call(obj) |
-                            Opcode::Push(obj) => format!("{:?}", obj),
+                            Opcode::Call(obj) | Opcode::Push(obj) => format!("{:?}", obj),
                             Opcode::TailRecurse => format!("tail-recurse"),
                         })
                         .collect();
                     println!(
                         "{:>20}   {:20}   {}",
                         entry.name,
-                        format!("{:?}", se),
+                        format!("{}", se),
                         ops.join(" ")
                     )
                 }
@@ -217,6 +221,10 @@ impl State {
         self.push(obj);
     }
 
+    pub fn pop_bool(&mut self) -> Option<bool> {
+        self.pop().try_into_bool()
+    }
+
     pub fn pop_i32(&mut self) -> Option<i32> {
         self.pop().try_into_i32()
     }
@@ -231,7 +239,10 @@ impl State {
     }
 
     pub fn begin_compile(&mut self) {
-        self.push(Object::Quotation(Rc::new(Quotation::new()), StackEffect::new()));
+        self.push(Object::Quotation(
+            Rc::new(Quotation::new()),
+            StackEffect::new(),
+        ));
     }
 
     pub fn dup(&mut self) {
