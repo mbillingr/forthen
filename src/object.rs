@@ -10,6 +10,8 @@ use crate::vm::Quotation;
 #[derive(Clone)]
 pub enum Object {
     None,
+    False,
+    True,
     Word(WordId),
     Quotation(Rc<Quotation>, StackEffect),
     NativeFunction(fn(&mut State), StackEffect),
@@ -25,6 +27,8 @@ impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Object::None => write!(f, "None"),
+            Object::False => write!(f, "False"),
+            Object::True => write!(f, "True"),
             Object::Word(id) => write!(f, "{:?}", id),
             Object::Quotation(_, se) => write!(f, "<quotation {:?}>", se),
             Object::NativeFunction(_, se) => write!(f, "<native {:?}>", se),
@@ -145,6 +149,15 @@ impl Object {
         match self {
             Object::List(vec) => vec,
             _ => panic!("Type Error"),
+        }
+    }
+
+    /// try to convert into `i32`.
+    pub fn try_into_bool(self) -> Option<bool> {
+        match self {
+            Object::True => Some(true),
+            Object::False => Some(false),
+            _ => None,
         }
     }
 
