@@ -7,6 +7,7 @@ use crate::object::Object;
 pub enum Opcode {
     Push(Object),
     Call(Object),
+    TailRecurse,
 }
 
 impl Opcode {
@@ -18,19 +19,12 @@ impl Opcode {
         Opcode::Call(Object::Word(id))
     }
 
-    pub fn run(&self, state: &mut State) {
-        use Opcode::*;
-        match self {
-            Push(obj) => state.push(obj.clone()),
-            Call(obj) => obj.invoke(state),
-        }
-    }
-
     pub fn stack_effect(&self) -> StackEffect {
         use Opcode::*;
         match self {
             Push(_) => StackEffect::new_pushing("x"),
             Call(obj) => obj.get_stack_effect(),
+            TailRecurse => unimplemented!()
         }
     }
 }
@@ -49,8 +43,16 @@ impl Quotation {
     }
 
     pub fn run(&self, state: &mut State) {
-        for op in &self.ops {
-            op.run(state)
+        use Opcode::*;
+        'outer: loop {
+            for op in &self.ops {
+                match op {
+                    Push(obj) => state.push(obj.clone()),
+                    Call(obj) => obj.invoke(state),
+                    TailRecurse => continue 'outer
+                }
+            }
+            break
         }
     }
 }

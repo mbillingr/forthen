@@ -181,6 +181,7 @@ impl State {
                             Opcode::Call(Object::Word(entry)) => format!("{}", entry.name),
                             Opcode::Call(obj) |
                             Opcode::Push(obj) => format!("{:?}", obj),
+                            Opcode::TailRecurse => format!("tail-recurse"),
                         })
                         .collect();
                     println!(
