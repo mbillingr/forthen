@@ -58,7 +58,7 @@ impl std::cmp::PartialEq for OutputValue {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StackEffect {
     inputs: Vec<StackValue>,
     outputs: Vec<OutputValue>,
@@ -153,7 +153,7 @@ impl std::cmp::PartialEq for StackEffect {
     }
 }
 
-impl std::fmt::Debug for StackEffect {
+impl std::fmt::Display for StackEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "(")?;
         for i in &self.inputs {
@@ -173,6 +173,7 @@ enum AbstractValue {
     Input(usize),
 }
 
+#[derive(Debug)]
 struct AbstractStack {
     values: Vec<StackValue>,
     inputs: VecDeque<usize>,
@@ -266,15 +267,20 @@ impl AbstractStack {
 
         let mut se = StackEffect::new();
 
+        //let ni = self.inputs.len();
+
         se.inputs = self
             .inputs
             .iter()
+            .rev()
+            .enumerate()
             .map(
-                |&i| match std::mem::replace(&mut values[i], OutputValue::Input(i)) {
+                |(i, &v)| match std::mem::replace(&mut values[v], OutputValue::Input(i)) {
                     OutputValue::New(val) => val,
                     _ => unreachable!(),
                 },
             )
+            .rev()
             .collect();
 
         for out in self.outputs {
@@ -477,5 +483,13 @@ mod tests {
             swap.clone().chain(drop3.clone()),
             StackEffect::parse("(c a b -- )")
         );
+    }
+
+    #[test]
+    fn regression_input_mapping() {
+        let sfx = StackEffect::new_pushing("z")
+            .chain(StackEffect::new_pushing("z"))
+            .chain(StackEffect::parse("(x c b a -- x)"));
+        assert_eq!(sfx, StackEffect::parse("(x c -- x)"));
     }
 }
