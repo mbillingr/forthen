@@ -16,9 +16,17 @@ pub fn tokenize(input: &str) -> impl Iterator<Item = &str> {
                         None => return Some(&input[a..]),
                     }
                 }
+                Some((_, '(')) => {
+                    it.next();
+                    return Some("(");
+                }
+                Some((_, ')')) => {
+                    it.next();
+                    return Some(")");
+                }
                 Some((i, _)) => {
                     let a = *i;
-                    skip_while(&mut it, |ch| !ch.is_whitespace());
+                    skip_while(&mut it, |ch| ch != '(' && ch != ')' && !ch.is_whitespace());
                     match it.peek() {
                         Some((b, _)) => return Some(&input[a..*b]),
                         None => return Some(&input[a..]),

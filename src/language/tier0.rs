@@ -33,7 +33,7 @@ impl State {
 
             let mut se = StackEffect::new();
             for op in &quot.ops {
-                se = se.chain(op.stack_effect());
+                se = se.chain(&op.stack_effect());
             }
 
             state.add_compound_word(name, se, quot);
@@ -48,7 +48,7 @@ impl State {
 
             let mut se = StackEffect::new();
             for op in &quot.ops {
-                se = se.chain(op.stack_effect());
+                se = se.chain(&op.stack_effect());
             }
 
             let obj = Object::Quotation(quot, se);
@@ -131,7 +131,7 @@ impl State {
 
             let mut se = StackEffect::new();
             for op in &quot.ops {
-                se = se.chain(op.stack_effect());
+                se = se.chain(&op.stack_effect());
             }
 
             state.add_compound_word(name, se, Rc::new(quot));

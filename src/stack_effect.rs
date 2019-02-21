@@ -1,4 +1,5 @@
-use std::collections::{HashMap, VecDeque};
+use crate::parsing::tokenize;
+use std::collections::VecDeque;
 
 pub trait IntoStackEffect {
     fn into_stack_effect(self) -> StackEffect;
@@ -22,51 +23,50 @@ impl IntoStackEffect for String {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Clone)]
+enum Kind {
+    Value,
+    Effect(StackEffect),
+    Unspecified,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 struct StackValue {
     name: String,
+    kind: Kind,
 }
 
 impl StackValue {
     fn new(name: &str) -> Self {
         StackValue {
             name: name.to_string(),
+            kind: Kind::Value,
         }
     }
 
     fn parse(token: &str) -> Self {
-        StackValue::new(token)
-    }
-}
-
-#[derive(Debug, Clone)]
-enum OutputValue {
-    New(StackValue),
-    Input(usize),
-    RepeatedOutput(usize),
-}
-
-impl std::cmp::PartialEq for OutputValue {
-    fn eq(&self, rhs: &Self) -> bool {
-        use OutputValue::*;
-        match (self, rhs) {
-            (New(_), New(_)) => true,
-            (Input(a), Input(b)) => a == b,
-            (RepeatedOutput(a), RepeatedOutput(b)) => a == b,
-            _ => false,
+        if token.starts_with("..") {
+            StackValue {
+                name: token[2..].to_string(),
+                kind: Kind::Unspecified,
+            }
+        } else {
+            StackValue::new(token)
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct StackEffect {
-    inputs: Vec<StackValue>,
-    outputs: Vec<OutputValue>,
+    values: Vec<StackValue>,
+    inputs: Vec<usize>,
+    outputs: Vec<usize>,
 }
 
 impl StackEffect {
     pub fn new() -> Self {
         StackEffect {
+            values: vec![],
             inputs: vec![],
             outputs: vec![],
         }
@@ -75,71 +75,102 @@ impl StackEffect {
     /// simple stack effect of pushing a value on the stack
     pub fn new_pushing(varname: &str) -> Self {
         StackEffect {
+            values: vec![StackValue::new(varname)],
             inputs: vec![],
-            outputs: vec![OutputValue::New(StackValue::new(varname))],
+            outputs: vec![0],
         }
     }
 
     /// simple stack effect of modifying a value on the stack
     pub fn new_mod(varname: &str) -> Self {
         StackEffect {
-            inputs: vec![StackValue::new(varname)],
-            outputs: vec![OutputValue::Input(0)],
+            values: vec![StackValue::new(varname)],
+            inputs: vec![0],
+            outputs: vec![0],
         }
     }
 
     pub fn parse(input: &str) -> Self {
+        StackEffect::parse_recursive(&mut tokenize(input).peekable()).link_nested_effects()
+    }
+
+    pub fn parse_recursive<'a>(
+        input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    ) -> Self {
         let mut se = StackEffect::new();
 
-        assert!(input.starts_with('('));
-        assert!(input.ends_with(')'));
+        assert!(input.next().expect("Unexpected end of stack effect") == "(");
 
-        let mut input = input[1..input.len() - 1].trim().split_whitespace();
-
-        while let Some(token) = input.next() {
-            if token == "--" {
+        while let Some(token) = input.peek() {
+            if *token == "--" {
                 break;
             }
-            assert!(se.inputs.iter().all(|val| val.name != token)); // make sure input names are unique
-            se.inputs.push(StackValue::parse(token));
-        }
-
-        while let Some(token) = input.next() {
-            if let Some(pos) = se.find_output(token) {
-                se.outputs.push(OutputValue::RepeatedOutput(pos));
-            } else if let Some(pos) = se.find_input(token) {
-                se.outputs.push(OutputValue::Input(pos));
+            if *token == "(" {
+                let subeffect = StackEffect::parse_recursive(input);
+                let iv = *se
+                    .inputs
+                    .last()
+                    .expect("Expected name before nested stack effect");
+                se.values[iv].kind = Kind::Effect(subeffect);
             } else {
-                se.outputs.push(OutputValue::New(StackValue::parse(token)));
+                assert!(
+                    se.input_values().all(|val| val.name != *token),
+                    "Stack effects inputs must have unique names"
+                );
+                se.inputs.push(se.values.len());
+                se.values.push(StackValue::parse(token));
+                input.next();
             }
         }
+
+        assert_eq!(input.next(), Some("--"), "Unexpected end of stack effect");
+
+        while let Some(token) = input.peek() {
+            if *token == ")" {
+                break;
+            } else if *token == "(" {
+                let subeffect = StackEffect::parse_recursive(input);
+                let ov = *se
+                    .outputs
+                    .last()
+                    .expect("Expected name before nested stack effect");
+                se.values[ov].kind = Kind::Effect(subeffect);
+            } else if let Some(pos) = se.find_value(token) {
+                se.outputs.push(pos);
+            } else {
+                se.outputs.push(se.values.len());
+                se.values.push(StackValue::parse(token));
+            }
+            input.next();
+        }
+
+        assert_eq!(input.next(), Some(")"), "Unexpected end of stack effect");
 
         se
     }
 
-    fn find_input(&self, name: &str) -> Option<usize> {
-        self.inputs.iter().position(|val| val.name == name)
+    fn link_nested_effects(self) -> Self {
+        self
+        //unimplemented!()
     }
 
-    fn find_output(&self, name: &str) -> Option<usize> {
-        self.outputs
-            .iter()
-            .position(|out| self.is_output_name(out, name))
+    fn input_values(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &StackValue> + ExactSizeIterator<Item = &StackValue> {
+        self.inputs.iter().map(move |&iv| &self.values[iv])
     }
 
-    fn is_output_name(&self, out: &OutputValue, name: &str) -> bool {
-        self.get_output_name(out) == name
+    fn output_values(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &StackValue> + ExactSizeIterator<Item = &StackValue> {
+        self.outputs.iter().map(move |&iv| &self.values[iv])
     }
 
-    fn get_output_name<'a>(&'a self, out: &'a OutputValue) -> &'a str {
-        match out {
-            OutputValue::New(val) => &val.name,
-            OutputValue::Input(i) => &self.inputs[*i].name,
-            OutputValue::RepeatedOutput(o) => self.get_output_name(&self.outputs[*o]),
-        }
+    fn find_value(&self, name: &str) -> Option<usize> {
+        self.values.iter().position(|val| val.name == name)
     }
 
-    pub fn chain(self, rhs: StackEffect) -> Self {
+    pub fn chain(&self, rhs: &StackEffect) -> Self {
         let mut stack = AbstractStack::new();
         stack.apply_effect(self);
         stack.apply_effect(rhs);
@@ -149,21 +180,76 @@ impl StackEffect {
 
 impl std::cmp::PartialEq for StackEffect {
     fn eq(&self, rhs: &Self) -> bool {
-        self.inputs.len() == rhs.inputs.len() && self.outputs == rhs.outputs
+        let n = self.inputs.len();
+        let m = self.outputs.len();
+
+        if n != rhs.inputs.len() {
+            return false;
+        }
+        if m != rhs.outputs.len() {
+            return false;
+        }
+
+        let mut a = StackEffectRealization::from_stack_effect(self);
+        let mut b = StackEffectRealization::from_stack_effect(rhs);
+
+        for i in 0..n {
+            a.set_input(i, i);
+            b.set_input(i, i);
+        }
+
+        for o in 0..m {
+            if a.get_output(o) != b.get_output(o) {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
 impl std::fmt::Display for StackEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "(")?;
-        for i in &self.inputs {
-            write!(f, " {}", i.name)?;
+        for &i in &self.inputs {
+            write!(f, " {}", self.values[i].name)?;
         }
         write!(f, " --")?;
-        for o in &self.outputs {
-            write!(f, " {}", self.get_output_name(o))?;
+        for &o in &self.outputs {
+            write!(f, " {}", self.values[o].name)?;
         }
         write!(f, " )")
+    }
+}
+
+struct StackEffectRealization<'a, T> {
+    se: &'a StackEffect,
+    values: Vec<Option<T>>,
+}
+
+impl<'a, T: Clone> StackEffectRealization<'a, T> {
+    fn from_stack_effect(se: &'a StackEffect) -> Self {
+        StackEffectRealization {
+            se,
+            values: vec![None; se.values.len()],
+        }
+    }
+
+    fn set_input(&mut self, i: usize, val: T) {
+        let idx = self.se.inputs[i];
+        assert!(self.values[idx].is_none());
+        self.values[idx] = Some(val);
+    }
+
+    fn set_output(&mut self, i: usize, val: T) {
+        let idx = self.se.outputs[i];
+        assert!(self.values[idx].is_none());
+        self.values[idx] = Some(val);
+    }
+
+    fn get_output(&self, o: usize) -> Option<&T> {
+        let idx = self.se.outputs[o];
+        self.values[idx].as_ref()
     }
 }
 
@@ -187,10 +273,6 @@ impl AbstractStack {
             inputs: VecDeque::new(),
             outputs: vec![],
         }
-    }
-
-    fn len(&self) -> usize {
-        self.outputs.len()
     }
 
     fn pop(&mut self, val: StackValue) -> AbstractValue {
@@ -219,87 +301,40 @@ impl AbstractStack {
         self.push(AbstractValue::New(v));
     }
 
-    fn get(&mut self, i: usize) -> AbstractValue {
-        self.outputs[i]
-    }
+    fn apply_effect(&mut self, se: &StackEffect) {
+        let mut ser = StackEffectRealization::from_stack_effect(se);
 
-    fn apply_effect(&mut self, se: StackEffect) {
         // pop inputs from stack
-        let mut inputs = VecDeque::new();
-        for val in se.inputs.into_iter().rev() {
-            inputs.push_front(self.pop(val));
+        for (i, val) in se.input_values().cloned().enumerate().rev() {
+            ser.set_input(i, self.pop(val));
         }
 
-        let offset = self.len();
-
         // push outputs on stack
-        for out in se.outputs {
-            match out {
-                OutputValue::New(val) => self.push_new(val),
-                OutputValue::Input(i) => self.push(inputs[i]),
-                OutputValue::RepeatedOutput(o) => {
-                    let x = self.get(offset + o);
-                    self.push(x);
+        for (o, val) in se.output_values().cloned().enumerate() {
+            match ser.get_output(o) {
+                Some(x) => self.push(*x),
+                None => {
+                    self.push_new(val);
+                    ser.set_output(o, *self.outputs.last().unwrap());
                 }
             }
         }
     }
 
     fn into_effect(self) -> StackEffect {
-        let mut name_counts = HashMap::new();
-
-        let mut values: Vec<_> = self
-            .values
-            .into_iter()
-            .map(|mut val| {
-                let c = name_counts.entry(val.name.clone()).or_insert(0);
-                if *c == 0 {
-                    *c += 1;
-                    val
-                } else {
-                    val.name += &format!("{}", c);
-                    *c += 1;
-                    val
-                }
-            })
-            .map(|val| OutputValue::New(val))
-            .collect();
-
         let mut se = StackEffect::new();
 
-        //let ni = self.inputs.len();
-
-        se.inputs = self
-            .inputs
+        se.outputs = self
+            .outputs
             .iter()
-            .rev()
-            .enumerate()
-            .map(
-                |(i, &v)| match std::mem::replace(&mut values[v], OutputValue::Input(i)) {
-                    OutputValue::New(val) => val,
-                    _ => unreachable!(),
-                },
-            )
-            .rev()
+            .map(|out| match out {
+                AbstractValue::Input(i) => self.inputs[self.inputs.len() - 1 - i],
+                AbstractValue::New(v) => *v,
+            })
             .collect();
+        se.inputs = self.inputs.into_iter().collect();
 
-        for out in self.outputs {
-            let v = match out {
-                AbstractValue::Input(i) => self.inputs[i],
-                AbstractValue::New(v) => v,
-            };
-
-            let val = if let OutputValue::RepeatedOutput(o) = values[v] {
-                OutputValue::RepeatedOutput(o)
-            } else {
-                std::mem::replace(
-                    &mut values[v],
-                    OutputValue::RepeatedOutput(se.outputs.len()),
-                )
-            };
-
-            se.outputs.push(val);
-        }
+        se.values = self.values;
 
         se
     }
@@ -316,8 +351,9 @@ mod tests {
         assert_eq!(
             swap,
             StackEffect {
-                inputs: vec![StackValue::new("a"), StackValue::new("b")],
-                outputs: vec![OutputValue::Input(1), OutputValue::Input(0)],
+                values: vec![StackValue::new("a"), StackValue::new("b")],
+                inputs: vec![0, 1],
+                outputs: vec![1, 0],
             }
         );
 
@@ -326,8 +362,9 @@ mod tests {
         assert_eq!(
             dup,
             StackEffect {
-                inputs: vec![StackValue::new("var")],
-                outputs: vec![OutputValue::Input(0), OutputValue::RepeatedOutput(0)],
+                values: vec![StackValue::new("var")],
+                inputs: vec![0],
+                outputs: vec![0, 0],
             }
         );
 
@@ -336,7 +373,8 @@ mod tests {
         assert_eq!(
             drop,
             StackEffect {
-                inputs: vec![StackValue::new("x")],
+                values: vec![StackValue::new("x")],
+                inputs: vec![0],
                 outputs: vec![],
             }
         );
@@ -346,12 +384,26 @@ mod tests {
         assert_eq!(
             put,
             StackEffect {
-                inputs: vec![StackValue::new("a"), StackValue::new("b")],
-                outputs: vec![
-                    OutputValue::New(StackValue::new("c")),
-                    OutputValue::Input(0),
-                    OutputValue::Input(1)
+                values: vec![
+                    StackValue::new("a"),
+                    StackValue::new("b"),
+                    StackValue::new("c")
                 ],
+                inputs: vec![0, 1],
+                outputs: vec![2, 0, 1],
+            }
+        );
+
+        assert_eq!(
+            put,
+            StackEffect {
+                values: vec![
+                    StackValue::new("b"),
+                    StackValue::new("c"),
+                    StackValue::new("a")
+                ],
+                inputs: vec![2, 0],
+                outputs: vec![1, 2, 0],
             }
         );
     }
@@ -397,99 +449,60 @@ mod tests {
 
         let drop3 = StackEffect::parse("(a b c -- )");
 
-        assert_eq!(
-            new.clone().chain(new.clone()),
-            StackEffect::parse("( -- x y)")
-        );
-        assert_eq!(
-            swap.clone().chain(swap.clone()),
-            StackEffect::parse("(a b -- a b)")
-        );
-        assert_eq!(
-            dup.clone().chain(dup.clone()),
-            StackEffect::parse("(x -- x x x)")
-        );
-        assert_eq!(
-            drop.clone().chain(drop.clone()),
-            StackEffect::parse("(b a -- )")
-        );
-        assert_eq!(
-            put.clone().chain(put.clone()),
-            StackEffect::parse("(a b -- c d a b)")
-        );
+        assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
+        assert_eq!(swap.chain(&swap), StackEffect::parse("(a b -- a b)"));
+        assert_eq!(dup.chain(&dup), StackEffect::parse("(x -- x x x)"));
+        assert_eq!(drop.chain(&drop), StackEffect::parse("(b a -- )"));
+        assert_eq!(put.chain(&put), StackEffect::parse("(a b -- c d a b)"));
 
-        assert_eq!(
-            dup.clone().chain(drop.clone()),
-            StackEffect::parse("(x -- x)")
-        );
-        assert_ne!(
-            dup.clone().chain(drop.clone()),
-            StackEffect::parse("(a b -- a b)")
-        );
+        assert_eq!(dup.chain(&drop), StackEffect::parse("(x -- x)"));
+        assert_ne!(dup.chain(&drop), StackEffect::parse("(a b -- a b)"));
 
-        assert_eq!(
-            swap.clone().chain(put.clone()),
-            StackEffect::parse("(a b -- c b a)")
-        );
-        assert_eq!(
-            put.clone().chain(swap.clone()),
-            StackEffect::parse("(a b -- c b a)")
-        );
+        assert_eq!(swap.chain(&put), StackEffect::parse("(a b -- c b a)"));
+        assert_eq!(put.chain(&swap), StackEffect::parse("(a b -- c b a)"));
 
-        assert_eq!(
-            dup.clone().chain(drop.clone()).chain(drop.clone()),
-            StackEffect::parse("(x --)")
-        );
+        assert_eq!(dup.chain(&drop).chain(&drop), StackEffect::parse("(x --)"));
 
         assert_eq!(put, StackEffect::parse("(a b -- c a b)"));
+        assert_eq!(put.chain(&swap), StackEffect::parse("(a b -- c b a)"));
         assert_eq!(
-            put.clone().chain(swap.clone()),
-            StackEffect::parse("(a b -- c b a)")
-        );
-        assert_eq!(
-            put.clone().chain(swap.clone()).chain(drop.clone()),
+            put.chain(&swap).chain(&drop),
             StackEffect::parse("(a b -- c b)")
         );
         assert_eq!(
-            put.clone()
-                .chain(swap.clone())
-                .chain(drop.clone())
-                .chain(dup.clone()),
+            put.chain(&swap).chain(&drop).chain(&dup),
             StackEffect::parse("(a b -- c b b)")
         );
         assert_eq!(
-            put.clone()
-                .chain(swap.clone())
-                .chain(drop.clone())
-                .chain(dup.clone())
-                .chain(new.clone()),
+            put.chain(&swap).chain(&drop).chain(&dup).chain(&new),
             StackEffect::parse("(a b -- c b b d)")
         );
         assert_eq!(
-            put.clone()
-                .chain(swap.clone())
-                .chain(drop.clone())
-                .chain(dup.clone())
-                .chain(new.clone())
-                .chain(swap.clone()),
+            put.chain(&swap)
+                .chain(&drop)
+                .chain(&dup)
+                .chain(&new)
+                .chain(&swap),
             StackEffect::parse("(a b -- c b d b)")
         );
 
-        assert_eq!(
-            drop3.clone().chain(swap.clone()),
-            StackEffect::parse("(a b c d e -- b a)")
-        );
-        assert_eq!(
-            swap.clone().chain(drop3.clone()),
-            StackEffect::parse("(c a b -- )")
-        );
+        assert_eq!(drop3.chain(&swap), StackEffect::parse("(a b c d e -- b a)"));
+        assert_eq!(swap.chain(&drop3), StackEffect::parse("(c a b -- )"));
     }
 
     #[test]
     fn regression_input_mapping() {
         let sfx = StackEffect::new_pushing("z")
-            .chain(StackEffect::new_pushing("z"))
-            .chain(StackEffect::parse("(x c b a -- x)"));
+            .chain(&StackEffect::new_pushing("z"))
+            .chain(&StackEffect::parse("(x c b a -- x)"));
         assert_eq!(sfx, StackEffect::parse("(x c -- x)"));
+    }
+
+    #[test]
+    fn dynamic_effect() {
+        let sfx = StackEffect::parse("(..a ? yes(..a -- ..b) no(..a -- ..b) -- ..b)");
+        println!("{:?}", sfx);
+        println!("{}", sfx);
+        panic!()
     }
 }
