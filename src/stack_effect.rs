@@ -1,5 +1,5 @@
 use crate::parsing::tokenize;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 pub trait IntoStackEffect {
     fn into_stack_effect(self) -> StackEffect;
@@ -210,6 +210,29 @@ impl StackEffect {
         stack.into_effect()
     }
 
+    pub fn resolve(&mut self, inputs: &[Option<StackEffect>]) {
+        for (val, j) in self.inputs.iter()
+            .map(|&i| &self.values[i])
+            .filter(|val| val.kind != Kind::Unspecified)
+            .zip(inputs)
+        {
+            match (&val.kind, j) {
+                (Kind::Unspecified, _) => unreachable!(),
+                (Kind::Value, _) => {},
+                (Kind::Effect(_), None) => panic!("expected quotation"),
+                (Kind::Effect(ref template), Some(ref actual)) => {
+                    // stack effect: (..a func(..a -- ..b) -- ..b)
+                    //  with inputs: [(x y -- z)]  ->  ..a := xy; ..b := z  ->  (x y -- z)
+
+                    // : apply   ( -- x y)   20 10
+                    // : apply   (f -- x y f)   20 10 rot
+                    // : apply   (..a f(..a x y -- ..b) -- ..b)   20 10 rot call
+                    unimplemented!()
+                },
+            }
+        }
+    }
+
     fn format_iter(&self, f: &mut std::fmt::Formatter, iter: impl Iterator<Item=usize>) -> std::fmt::Result {
         for idx in iter {
             let val = &self.values[idx];
@@ -368,7 +391,9 @@ impl AbstractStack {
         }
     }
 
-    fn into_effect(self) -> StackEffect {
+    fn into_effect(mut self) -> StackEffect {
+        self.resolve_name_conflicts();
+
         let mut se = StackEffect::new();
 
         se.outputs = self
@@ -384,6 +409,20 @@ impl AbstractStack {
         se.values = self.values;
 
         se
+    }
+
+    fn resolve_name_conflicts(&mut self) {
+        let mut name_counts = HashMap::new();
+
+        for val in &mut self.values {
+            let c = name_counts.entry(val.name.clone()).or_insert(0);
+            if *c == 0 {
+                *c += 1;
+            } else {
+                val.name += &format!("{}", c);
+                *c += 1;
+            }
+        }
     }
 }
 
@@ -546,8 +585,32 @@ mod tests {
     }
 
     #[test]
+    fn chain_unspec() {
+        // Correct chaining of sub effect templates... e.g. what should happen in the case where
+        // we have a word that creates and passes arguments to a quotation it recieves as input?
+        // For example, we have a word that takes as input a quotation such as [ + ] or [ - ] and
+        // applies it to 20 and 10?
+        // Considering that we do not know what quotation will be actually passed (we could get [ + + ]),
+        // I think the resulting stack effect should look like this (third row):
+        //     : apply   ( -- x y)   20 10
+        //     : apply   (f -- x y f)   20 10 rot
+        //     : apply   (..a f(..a x y -- ..b) -- ..b)   20 10 rot call
+
+        let new = StackEffect::parse("( -- x)");
+        let rot = StackEffect::parse("(a b c -- b c a)");
+        let call = StackEffect::parse("(..a func(..a -- ..b) -- ..b)");
+
+        println!("{}", new.chain(&new).chain(&rot).chain(&call));
+
+        assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
+        assert_eq!(new.chain(&new).chain(&rot), StackEffect::parse("(f -- x y f)"));
+        assert_eq!(new.chain(&new).chain(&rot).chain(&call), StackEffect::parse("(..a f(..a x y -- ..b) -- ..b)"));
+
+    }
+
+    #[test]
     fn dynamic_effect() {
-        let sfx = StackEffect::parse("(..a ? yes(..a -- ..b) no(..a -- ..b) -- ..b)");
+        let sfx = StackEffect::parse("(..a ? yes(..a ? -- ..b) no(..a -- ..b) -- ..b)");
         println!("{:?}", sfx);
         println!("{}", sfx);
         panic!()

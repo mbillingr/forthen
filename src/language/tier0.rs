@@ -139,12 +139,12 @@ impl State {
 
         // todo: find a way to deal with stack effects of words calling quotations
 
-        self.add_native_word("call", "(? func -- ?)", |state| {
+        self.add_native_word("call", "(..a func(..a -- ..b) -- ..b)", |state| {
             let func = state.pop();
             func.invoke(state);
         });
 
-        self.add_native_word("if", "(? cond if el -- ?)", |state| {
+        self.add_native_word("if", "(..a ? true(..a -- ..b) false(..a -- ..b) -- ..b)", |state| {
             let else_branch = state.pop();
             let if_branch = state.pop();
             let cond = state.pop().try_into_bool().unwrap();

@@ -50,6 +50,8 @@ mod tests {
         println!("{:#?}", state);
 
         state.format_word(":");
+        state.format_word("call");
+        state.format_word("if");
         state.format_word("the-answer");
         state.format_word("more-answers");
         state.format_word("2dup");
