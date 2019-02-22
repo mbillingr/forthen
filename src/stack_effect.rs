@@ -26,7 +26,7 @@ impl IntoStackEffect for String {
 #[derive(Debug, PartialEq, Clone)]
 enum Kind {
     Value,
-    Effect(StackEffect),
+    Effect(SubEffect),
     Unspecified,
 }
 
@@ -54,6 +54,12 @@ impl StackValue {
             StackValue::new(token)
         }
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct SubEffect {
+    inputs: Vec<usize>,
+    outputs: Vec<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -106,12 +112,12 @@ impl StackEffect {
                 break;
             }
             if *token == "(" {
-                let subeffect = StackEffect::parse_recursive(input);
+                let effect = StackEffect::parse_recursive(input);
                 let iv = *se
                     .inputs
                     .last()
                     .expect("Expected name before nested stack effect");
-                se.values[iv].kind = Kind::Effect(subeffect);
+                se.values[iv].kind = Kind::Effect(se.convert_subeffect(effect));
             } else {
                 assert!(
                     se.input_values().all(|val| val.name != *token),
@@ -129,12 +135,12 @@ impl StackEffect {
             if *token == ")" {
                 break;
             } else if *token == "(" {
-                let subeffect = StackEffect::parse_recursive(input);
+                let effect = StackEffect::parse_recursive(input);
                 let ov = *se
                     .outputs
                     .last()
                     .expect("Expected name before nested stack effect");
-                se.values[ov].kind = Kind::Effect(subeffect);
+                se.values[ov].kind = Kind::Effect(se.convert_subeffect(effect));
             } else if let Some(pos) = se.find_value(token) {
                 se.outputs.push(pos);
             } else {
@@ -147,6 +153,33 @@ impl StackEffect {
         assert_eq!(input.next(), Some(")"), "Unexpected end of stack effect");
 
         se
+    }
+
+    fn convert_subeffect(&mut self, se: StackEffect) -> SubEffect {
+        let mut inputs = vec![];
+        let mut outputs = vec![];
+
+        for i in se.input_values() {
+            if let Some(pos) = self.find_value(&i.name) {
+                inputs.push(pos);
+            } else {
+                inputs.push(self.values.len());
+                self.values.push(i.clone());
+            }
+        }
+
+        for o in se.output_values() {
+            if let Some(pos) = self.find_value(&o.name) {
+                outputs.push(pos);
+            } else {
+                outputs.push(self.values.len());
+                self.values.push(o.clone());
+            }
+        }
+
+        SubEffect {
+            inputs, outputs
+        }
     }
 
     fn link_nested_effects(self) -> Self {
@@ -175,6 +208,24 @@ impl StackEffect {
         stack.apply_effect(self);
         stack.apply_effect(rhs);
         stack.into_effect()
+    }
+
+    fn format_iter(&self, f: &mut std::fmt::Formatter, iter: impl Iterator<Item=usize>) -> std::fmt::Result {
+        for idx in iter {
+            let val = &self.values[idx];
+            match val.kind {
+                Kind::Value => write!(f, " {}", val.name)?,
+                Kind::Unspecified => write!(f, " ..{}", val.name)?,
+                Kind::Effect(ref se) => {
+                    write!(f, " {}(", val.name)?;
+                    self.format_iter(f, se.inputs.iter().cloned());
+                    write!(f, " --")?;
+                    self.format_iter(f, se.outputs.iter().cloned());
+                    write!(f, " )")?;
+                },
+            }
+        }
+        Ok(())
     }
 }
 
@@ -211,13 +262,9 @@ impl std::cmp::PartialEq for StackEffect {
 impl std::fmt::Display for StackEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "(")?;
-        for &i in &self.inputs {
-            write!(f, " {}", self.values[i].name)?;
-        }
+        self.format_iter(f, self.inputs.iter().cloned())?;
         write!(f, " --")?;
-        for &o in &self.outputs {
-            write!(f, " {}", self.values[o].name)?;
-        }
+        self.format_iter(f, self.outputs.iter().cloned())?;
         write!(f, " )")
     }
 }

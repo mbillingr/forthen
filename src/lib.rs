@@ -5,6 +5,7 @@ mod object_factory;
 mod parsing;
 mod rcstring;
 mod scope;
+mod se_interpreter;
 mod stack_effect;
 mod state;
 mod testing;

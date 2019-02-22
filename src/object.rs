@@ -111,7 +111,7 @@ impl Object {
             Object::Quotation(_, se) => se.clone(),
             Object::NativeFunction(_, se) => se.clone(),
             Object::NativeClosure(_, se) => se.clone(),
-            other => panic!("Type Error"),
+            _ => panic!("Type Error"),
         }
     }
 
@@ -122,7 +122,7 @@ impl Object {
             Object::Quotation(quot, _) => quot.run(state),
             Object::NativeFunction(fun, _) => fun(state),
             Object::NativeClosure(fun, _) => fun(state),
-            other => panic!("Type Error"),
+            _ => panic!("Type Error"),
         }
     }
 
