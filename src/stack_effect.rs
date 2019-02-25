@@ -1,5 +1,5 @@
 use crate::parsing::tokenize;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 pub trait IntoStackEffect {
     fn into_stack_effect(self) -> StackEffect;
@@ -203,11 +203,58 @@ impl StackEffect {
         self.values.iter().position(|val| val.name == name)
     }
 
+    fn add_value(&mut self, val: StackValue) -> usize {
+        let idx = self.values.len();
+        self.values.push(val);
+        idx
+
+    }
+
+    fn value_idx(&mut self, val: &StackValue) -> usize {
+        self.values.iter().position(|v| v == val).unwrap_or_else(|| self.add_value(val.clone()))
+    }
+
     pub fn chain(&self, rhs: &StackEffect) -> Self {
-        let mut stack = AbstractStack::new();
-        stack.apply_effect(self);
-        stack.apply_effect(rhs);
-        stack.into_effect()
+        let mut se = self.clone();
+
+        let mut inputs = Vec::new();
+        let mut pre_inputs = Vec::new();
+
+        for &i in rhs.inputs.iter().rev() {
+            match se.outputs.pop() {
+                Some(o) => {
+                    let item = &se.values[o];
+                    match item.kind {
+                        Kind::Value => inputs.push(o),
+                        Kind::Unspecified => unimplemented!(),
+                        Kind::Effect(_) => unimplemented!(),
+                    }
+                },
+                None => {
+                    let idx = se.add_value(rhs.values[i].clone());
+                    inputs.push(idx);
+                    pre_inputs.push(idx)
+                },
+            }
+        }
+
+        pre_inputs.reverse();
+        pre_inputs.extend(se.inputs);
+        se.inputs = pre_inputs;
+
+        inputs.reverse();
+
+        for &o in &rhs.outputs {
+            let idx = match rhs.inputs.iter().position(|&i| i == o) {
+                Some(i) => inputs[i],
+                None => se.value_idx(&rhs.values[o]),
+            };
+            se.outputs.push(idx);
+        }
+
+        se.resolve_name_conflicts();
+
+        se
     }
 
     pub fn resolve(&mut self, _inputs: &[Option<StackEffect>]) {
@@ -232,6 +279,20 @@ impl StackEffect {
                 },
             }
         }*/
+    }
+
+    fn resolve_name_conflicts(&mut self) {
+        let mut name_counts = HashMap::new();
+
+        for val in &mut self.values {
+            let c = name_counts.entry(val.name.clone()).or_insert(0);
+            if *c == 0 {
+                *c += 1;
+            } else {
+                val.name += &format!("{}", c);
+                *c += 1;
+            }
+        }
     }
 
     fn format_iter(&self, f: &mut std::fmt::Formatter, iter: impl Iterator<Item=usize>) -> std::fmt::Result {
@@ -293,6 +354,7 @@ impl std::fmt::Display for StackEffect {
     }
 }
 
+#[derive(Debug)]
 struct StackEffectRealization<'a, T> {
     se: &'a StackEffect,
     values: Vec<Option<T>>,
@@ -312,118 +374,15 @@ impl<'a, T: Clone> StackEffectRealization<'a, T> {
         self.values[idx] = Some(val);
     }
 
-    fn set_output(&mut self, i: usize, val: T) {
+    /*fn set_output(&mut self, i: usize, val: T) {
         let idx = self.se.outputs[i];
         assert!(self.values[idx].is_none());
         self.values[idx] = Some(val);
-    }
+    }*/
 
     fn get_output(&self, o: usize) -> Option<&T> {
         let idx = self.se.outputs[o];
         self.values[idx].as_ref()
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-enum AbstractValue {
-    New(usize),
-    Input(usize),
-}
-
-#[derive(Debug)]
-struct AbstractStack {
-    values: Vec<StackValue>,
-    inputs: VecDeque<usize>,
-    outputs: Vec<AbstractValue>,
-}
-
-impl AbstractStack {
-    fn new() -> Self {
-        AbstractStack {
-            values: vec![],
-            inputs: VecDeque::new(),
-            outputs: vec![],
-        }
-    }
-
-    fn pop(&mut self, val: StackValue) -> AbstractValue {
-        match self.outputs.pop() {
-            Some(x) => x,
-            None => {
-                let v = self.values.len();
-                self.values.push(val);
-
-                let i = self.inputs.len();
-                self.inputs.push_front(v);
-
-                AbstractValue::Input(i)
-            }
-        }
-    }
-
-    fn push(&mut self, x: AbstractValue) {
-        self.outputs.push(x);
-    }
-
-    fn push_new(&mut self, x: StackValue) {
-        let v = self.values.len();
-        self.values.push(x);
-
-        self.push(AbstractValue::New(v));
-    }
-
-    fn apply_effect(&mut self, se: &StackEffect) {
-        let mut ser = StackEffectRealization::from_stack_effect(se);
-
-        // pop inputs from stack
-        for (i, val) in se.input_values().cloned().enumerate().rev() {
-            ser.set_input(i, self.pop(val));
-        }
-
-        // push outputs on stack
-        for (o, val) in se.output_values().cloned().enumerate() {
-            match ser.get_output(o) {
-                Some(x) => self.push(*x),
-                None => {
-                    self.push_new(val);
-                    ser.set_output(o, *self.outputs.last().unwrap());
-                }
-            }
-        }
-    }
-
-    fn into_effect(mut self) -> StackEffect {
-        self.resolve_name_conflicts();
-
-        let mut se = StackEffect::new();
-
-        se.outputs = self
-            .outputs
-            .iter()
-            .map(|out| match out {
-                AbstractValue::Input(i) => self.inputs[self.inputs.len() - 1 - i],
-                AbstractValue::New(v) => *v,
-            })
-            .collect();
-        se.inputs = self.inputs.into_iter().collect();
-
-        se.values = self.values;
-
-        se
-    }
-
-    fn resolve_name_conflicts(&mut self) {
-        let mut name_counts = HashMap::new();
-
-        for val in &mut self.values {
-            let c = name_counts.entry(val.name.clone()).or_insert(0);
-            if *c == 0 {
-                *c += 1;
-            } else {
-                val.name += &format!("{}", c);
-                *c += 1;
-            }
-        }
     }
 }
 
