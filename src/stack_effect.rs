@@ -1,4 +1,5 @@
 use crate::parsing::tokenize;
+use std::collections::VecDeque;
 
 pub trait IntoStackEffect {
     fn into_stack_effect(self) -> StackEffect;
@@ -152,19 +153,40 @@ impl StackEffect {
     }
 
     pub fn chain(&self, rhs: &StackEffect) -> Self {
-        let mut se = StackEffect::new();
+        use Kind::*;
 
-        if self.outputs.len() >= rhs.inputs.len() {
-            se.inputs = self.inputs.clone();
-            se.outputs = self.outputs[..self.outputs.len() - rhs.inputs.len()].into();
-            se.outputs.extend_from_slice(&rhs.outputs);
-        } else {
-            se.inputs = rhs.inputs[..rhs.inputs.len() - self.outputs.len()].into();
-            se.inputs.extend_from_slice(&self.inputs);
-            se.outputs = rhs.outputs.clone();
+        let mut inputs = VecDeque::from(self.inputs.clone());
+        let mut outputs = self.outputs.clone();
+
+        for i in &rhs.inputs {
+            let out = match outputs.pop() {
+                Some(out) => out,
+                None => {
+                    inputs.push_front(i.clone());
+                    continue
+                },
+            };
+
+            // todo
+            match (&out.kind, &i.kind) {
+                (Value, Value) => {}
+                (Value, Effect(_)) => {}
+                (Value, Unspecified) => {}//outputs.push(out),
+                (Unspecified, Value) => unimplemented!(),
+                (Unspecified, Effect(_)) => unimplemented!(),
+                (Unspecified, Unspecified) => unimplemented!(),
+                (Effect(_), Value) => panic!("Error"),
+                (Effect(_), Effect(_)) => unimplemented!(),
+                (Effect(_), Unspecified) => unimplemented!()
+            }
         }
 
-        se
+        outputs.extend_from_slice(&rhs.outputs);
+
+        StackEffect {
+            inputs: inputs.into(),
+            outputs
+        }
     }
 
     pub fn resolve(&mut self, _inputs: &[Option<StackEffect>]) {
@@ -354,10 +376,14 @@ mod tests {
         //     : apply   (f -- x y f)   20 10 rot
         //     : apply   (..a f(..a x y -- ..b) -- ..b)   20 10 rot call
 
+        //     (--x) (--y) (a b c -- b c a) (..a f(..a -- ..b) -- ..b) = (-- x y f) (..a f(..a -- ..b) -- ..b)
+
         let new = StackEffect::parse("( -- x)");
         let rot = StackEffect::parse("(a b c -- b c a)");
         let call = StackEffect::parse("(..a func(..a -- ..b) -- ..b)");
 
+        println!("{}", new.chain(&new));
+        println!("{}", new.chain(&new).chain(&rot));
         println!("{}", new.chain(&new).chain(&rot).chain(&call));
 
         assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
