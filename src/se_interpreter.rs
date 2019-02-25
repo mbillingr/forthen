@@ -1,4 +1,4 @@
-use crate::stack_effect::StackEffect;
+/*use crate::stack_effect::StackEffect;
 use crate::vm::{Opcode, Quotation};
 
 fn stack_effect_interpreter(quot: &Quotation) -> StackEffect {
@@ -21,3 +21,4 @@ impl AbstractEffectStack {
         AbstractEffectStack {}
     }
 }
+*/

@@ -210,8 +210,9 @@ impl StackEffect {
         stack.into_effect()
     }
 
-    pub fn resolve(&mut self, inputs: &[Option<StackEffect>]) {
-        for (val, j) in self.inputs.iter()
+    pub fn resolve(&mut self, _inputs: &[Option<StackEffect>]) {
+        unimplemented!()
+        /*for (val, j) in self.inputs.iter()
             .map(|&i| &self.values[i])
             .filter(|val| val.kind != Kind::Unspecified)
             .zip(inputs)
@@ -230,7 +231,7 @@ impl StackEffect {
                     unimplemented!()
                 },
             }
-        }
+        }*/
     }
 
     fn format_iter(&self, f: &mut std::fmt::Formatter, iter: impl Iterator<Item=usize>) -> std::fmt::Result {
@@ -241,9 +242,9 @@ impl StackEffect {
                 Kind::Unspecified => write!(f, " ..{}", val.name)?,
                 Kind::Effect(ref se) => {
                     write!(f, " {}(", val.name)?;
-                    self.format_iter(f, se.inputs.iter().cloned());
+                    self.format_iter(f, se.inputs.iter().cloned())?;
                     write!(f, " --")?;
-                    self.format_iter(f, se.outputs.iter().cloned());
+                    self.format_iter(f, se.outputs.iter().cloned())?;
                     write!(f, " )")?;
                 },
             }
