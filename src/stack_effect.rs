@@ -47,7 +47,7 @@ impl StackValue {
     fn parse(token: &str) -> Self {
         if token.starts_with("..") {
             StackValue {
-                name: token[2..].to_string(),
+                name: token.to_string(),
                 kind: Kind::Unspecified,
             }
         } else {
@@ -207,15 +207,27 @@ impl StackEffect {
         let idx = self.values.len();
         self.values.push(val);
         idx
-
     }
 
     fn value_idx(&mut self, val: &StackValue) -> usize {
         self.values.iter().position(|v| v == val).unwrap_or_else(|| self.add_value(val.clone()))
     }
 
+    fn replace_value_with_subeffect_from(&mut self, idx: usize, se: &StackEffect, mut sub: SubEffect, name: String) {
+        for i in &mut sub.inputs {
+            *i = self.value_idx(&se.values[*i]);
+        }
+        for o in &mut sub.outputs {
+            *o = self.value_idx(&se.values[*o]);
+        }
+        self.values[idx].name = name;
+        self.values[idx].kind = Kind::Effect(sub);
+    }
+
     pub fn chain(&self, rhs: &StackEffect) -> Self {
         let mut se = self.clone();
+
+        println!("{:?} {:?}", se.values, rhs.values);
 
         let mut inputs = Vec::new();
         let mut pre_inputs = Vec::new();
@@ -224,10 +236,19 @@ impl StackEffect {
             match se.outputs.pop() {
                 Some(o) => {
                     let item = &se.values[o];
-                    match item.kind {
-                        Kind::Value => inputs.push(o),
-                        Kind::Unspecified => unimplemented!(),
-                        Kind::Effect(_) => unimplemented!(),
+                    match (&se.values[o].kind, &rhs.values[i].kind) {
+                        (Kind::Value, Kind::Value) => inputs.push(o),
+                        (Kind::Value, Kind::Effect(sub)) => {
+                            se.replace_value_with_subeffect_from(o, rhs, sub.clone(), rhs.values[i].name.clone());
+                            inputs.push(o);
+                        }
+                        (Kind::Value, Kind::Unspecified) => {
+                            // todo
+                            panic!("{:?}", se.values);
+                        }
+                        (a, b) => unimplemented!("{:?}, {:?}", a, b),
+                        //Kind::Unspecified => unimplemented!(),
+                        //Kind::Effect(_) => unimplemented!(),
                     }
                 },
                 None => {
@@ -299,8 +320,8 @@ impl StackEffect {
         for idx in iter {
             let val = &self.values[idx];
             match val.kind {
-                Kind::Value => write!(f, " {}", val.name)?,
-                Kind::Unspecified => write!(f, " ..{}", val.name)?,
+                Kind::Value |
+                Kind::Unspecified => write!(f, " {}", val.name)?,
                 Kind::Effect(ref se) => {
                     write!(f, " {}(", val.name)?;
                     self.format_iter(f, se.inputs.iter().cloned())?;
@@ -556,9 +577,15 @@ mod tests {
         //     : apply   (f -- x y f)   20 10 rot
         //     : apply   (..a f(..a x y -- ..b) -- ..b)   20 10 rot call
 
+        //     (-- x) (-- y) (a b c -- b c a) (..a f(..a -- ..b) -- ..b)
+        //                     = (f -- x y f) (..a f(..a -- ..b) -- ..b)
+        //                                  = (..a f(..a x y -- ..b) -- ..b)
+
         let new = StackEffect::parse("( -- x)");
         let rot = StackEffect::parse("(a b c -- b c a)");
         let call = StackEffect::parse("(..a func(..a -- ..b) -- ..b)");
+
+        println!("{:?}", call.values);
 
         println!("{}", new.chain(&new).chain(&rot).chain(&call));
 
