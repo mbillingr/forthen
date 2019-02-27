@@ -1,0 +1,136 @@
+\documentclass[a4paper]{hitec}
+
+\title{Stack Effect Algebra}
+
+\date{}
+
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+This document summarizes the mathematical foundations for automatically deriving
+stack effects in a concatenative stack-oriented programming language. We 
+consider a stack-oriented programming language like \textit{Forth}, where 
+functions are called words and operate on a value stack. Words pop arguments 
+from the top of the stack and push return values back on the stack. 
+Alternatively, one could think of words as functions that take as single 
+argument the whole stack and return an entirely new stack. These two ways of 
+thinking about words are equivalent.
+
+Forth uses a convention to include stack effects as comments in newly
+defined words. Stack effects describe how a word modifies the stack. They are
+written as \verb|( <inputs> -- <outputs> )|, where \verb|<inputs>| describes
+the top of the stack before execution of the word and \verb|<outputs| outputs
+describes the top of the stack after execution. Both are whitespace delimited
+lists that assign names to items on the stack and may specify data types with a
+prefix notation.
+
+\vspace{0.5cm}
+Example stack effects:
+
+\begin{tabular}{rcll}
+	\verb|(|&\verb|--|&\verb|)| & identity; no stack modification \\
+	\verb|( x|&\verb|--|&\verb|)| & drop top item from stack \\
+	\verb|(|&\verb|--|&\verb|n )| & push a new signed integer on the stack \\
+	\verb|( x|&\verb|--|&\verb|x x )| & duplicate item on the stack \\
+	\verb|( x1 x2|&\verb|--|&\verb|x2 x1 )| & swap two items
+\end{tabular}
+\vspace{0.5cm}
+
+The language \textit{Factor} takes stack effects a step further. In Factor, they are not
+mere comments, but are checked by the compiler for consistency with the code.
+In contrast to Forth, Factor is dynamically typed and can have quotations
+(anonymous words) on the stack. Combinators are words that operate on 
+quotations. The stack effect of a combinator can depend on the stack effect of
+the quotations it gets as input, which may not be known in advance. Therefore,
+Factor extended the syntax for stack effect declarations with row variables and
+quotation effects. For example, the stack effect of the \verb|if| combinator is
+declared as follows:
+\begin{verbatim}
+	( ..a ? true: ( ..a -- ..b ) false: ( ..a -- ..b ) -- ..b )
+\end{verbatim}
+This combinator takes a condition \verb|?| and two quotations \verb|true|, 
+\verb|false| from the stack. Both quotations have the same stack effect
+\verb|( ..a -- ..b)|. The row variables \verb|..a| and \verb|..b| declare that
+the quotations may take any number of items from the stack and push any number
+of items onto the stack. Finally, the combinator returns \verb|..b|, which is
+whatever the quotation returned.
+
+Both, Factor and Forth are concatenative languages. That means that words are
+called in sequence and each word takes the output of the previous word as input.
+New words are defined as sequences of words. For example, a word that removes
+the second item from the stack could be defined as
+\begin{verbatim}
+	: nip   ( x1 x2 -- x2 )   swap drop ;
+\end{verbatim}
+We know the stack effects of \verb|swap ( x1 x2 -- x2 x1 )| and 
+\verb|drop ( x -- )|. The stack effect of \verb|nip| follows directly from
+combining their effects. The following sections explain how to derive stack
+effects in a generic way for words, quotations and combinators.
+
+\section{Notation}
+
+For the purpose of this document, we use mathematical notation for stack
+effects, where $-$ delimits inputs outputs. Stack items are denoted by name
+with single lowercase characters $a\ \dots\ z$. The names by themselves are
+completely meaningless and interchangeable. Their purpose is to uniquely
+identify items within a single stack effect. Two items with the same name refer
+to the same object.
+Furthermore, we add explicit row variables to every definition, which represent 
+the entire remaining stack. For example, $..a\ x$ and $..a\ y$ refer to equal
+stacks where only the top item is different. Whereas, $..a\ x$ and $..b\ x$ can 
+(but don't need to) be two totally different stacks with the same top item.
+
+Here are a few typical stack effects:
+\begin{alignat}{5}
+	\mathrm{identity:} & \qquad & ..a\ & -\ && ..a\ \\
+	\mathrm{unspecified:} & \qquad & ..a\ & -\ && ..b\ \\
+	\mathrm{drop:} & \qquad & ..a\ x\ & -\ && ..a\ \\
+	\mathrm{push:} & \qquad & ..a\ & -\ && ..a\ x\ \\
+	\mathrm{dup:} & \qquad & ..a\ x\ & -\ && ..a\ x\ x\ \\
+	\mathrm{swap:} & \qquad & ..a\ x\ y\ & -\ && ..a\ y\ x\
+\end{alignat}
+
+Quotation effects are written as an item name for the quotation, immediately
+followed by its stack effect in parentheses. For example, $f(..a -- ..b)$
+states that the item $f$ is a quotation with an arbitrary stack effect.
+
+Here are a few typical combinator effects:
+\begin{alignat}{5}
+	\mathrm{call:} & \qquad & ..a\ f(..a\ -\ ..b)\ &-\ && ..b\ \\
+	\mathrm{if:} & \qquad & ..a\ c\ t(..a\ -\ ..b)\  f(..a\ -\ ..b)\ &-\ && ..b\
+\end{alignat}
+
+\section{Word Composition}
+
+New words are defined by concatenation of existing words. Consider the word
+\verb|: add-two   ( n -- n ) 2 + ;| which is composed of the words \verb|2| and
+\verb|+|. The former is a literal that pushes the value $2$ on the stack, and
+the latter takes two values from the stack and pushes their sum. The stack 
+effect of \verb|2| is $(..a\ -\ ..a\ n)$ and the stack effect of \verb|+| is
+$(..b\ x\ y\ -\ ..b\ z)$. Their combined effect is $(..c\ m\ -\ ..c\ n)$, which
+says that an item is popped from the stack and replaced with a different item.
+
+Deriving stack effects of word concatenations seems straight forward: For each 
+word in sequence simply pop inputs from an abstract stack and push back 
+outputs. Popping from an empty abstract stack generates new items. All items
+popped from the empty stack are the inputs of the derived effect, and the
+resulting stack represents the output.
+
+\begin{equation}
+\begin{array}{rcrcl}
+	..a\ x\ y\ &-& ..a\ y\ x\ & &\\
+		       & &    ..b\ z\ &-& ..b\ \\
+		  \hline
+	..a\ x\ y\ & & -          & & ..a\ y\
+\end{array}
+\end{equation}
+
+\section{Summary}
+
+\end{document}
