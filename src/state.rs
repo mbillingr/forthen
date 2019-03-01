@@ -176,7 +176,7 @@ impl State {
             None => println!("{:>20}  undefined!", name),
             Some(entry) => match entry.word.inner() {
                 Object::NativeFunction(_, se) => {
-                    println!("{:>20}   {:20}   <native>", entry.name, format!("({})", se))
+                    println!("{:>20}   {:50}   <native>", entry.name, format!("({})", se))
                 }
                 Object::Quotation(quot, se) => {
                     let ops: Vec<_> = quot
@@ -189,7 +189,7 @@ impl State {
                         })
                         .collect();
                     println!(
-                        "{:>20}   {:20}   {}",
+                        "{:>20}   {:50}   {}",
                         entry.name,
                         format!("({})", se),
                         ops.join(" ")

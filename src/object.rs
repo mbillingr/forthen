@@ -30,7 +30,7 @@ impl std::fmt::Debug for Object {
             Object::False => write!(f, "False"),
             Object::True => write!(f, "True"),
             Object::Word(id) => write!(f, "{}", id),
-            Object::Quotation(q, se) => write!(f, "[ {} ]", q),
+            Object::Quotation(q, _) => write!(f, "[ {} ]", q),
             Object::NativeFunction(_, se) => write!(f, "<native ({})>", se),
             Object::NativeClosure(_, se) => write!(f, "<closure ({})>", se),
             Object::List(list) => write!(f, "{:?}", list),

@@ -279,7 +279,6 @@ mod tests {
         state.run(": yes-or-no [ \"yes\" dup ] [ \"no\" \"no\" ] if ;");
 
         state.run("false yes-or-no");
-        println!("{:?}", state.stack);
         assert_eq!(state.pop_str().unwrap(), "no");
         assert_eq!(state.pop_str().unwrap(), "no");
 
@@ -288,11 +287,5 @@ mod tests {
         assert_eq!(state.pop_str().unwrap(), "yes");
 
         assert_eq!(state.pop_i32(), Some(123));
-
-        state.run(": put [ 42 ] ;");
-
-        state.format_word("if");
-        state.format_word("yes-or-no");
-        state.format_word("put");
     }
 }

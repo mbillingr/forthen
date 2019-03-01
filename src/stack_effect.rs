@@ -625,14 +625,6 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_effect() {
-        let sfx = StackEffect::parse("(..a ? yes(..a ? -- ..b) no(..a -- ..b) -- ..b)");
-        println!("{:?}", sfx);
-        println!("{}", sfx);
-        panic!()
-    }
-
-    #[test]
     fn if_effect() {
         let sfx = StackEffect::parse("(..a ? yes(..a -- ..b) no(..a -- ..b) -- ..b)");
         let yes = StackEffect::parse("(..d -- ..d f(..c -- ..c x))");
