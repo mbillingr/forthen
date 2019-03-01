@@ -1,7 +1,2 @@
-[package]
-name = "forthen"
-version = "0.1.0"
-authors = ["Martin Billinger <flkazemakase@gmail.com>"]
-edition = "2018"
-
-[dependencies]
+[workspace]
+members = ["forthen-core"]
