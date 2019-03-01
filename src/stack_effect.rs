@@ -522,4 +522,17 @@ mod tests {
         println!("{}", sfx);
         panic!()
     }
+
+    #[test]
+    fn if_effect() {
+        let sfx = StackEffect::parse("(..a ? yes(..a -- ..b) no(..a -- ..b) -- ..b)");
+        let yes = StackEffect::parse("(..d -- ..d f(..c -- ..c x))");
+        let no = StackEffect::parse("(..d -- ..d f(..c -- ..c x))");
+
+        println!("{}", yes.chain(&no).chain(&sfx));
+        assert_eq!(
+            yes.chain(&no).chain(&sfx),
+            StackEffect::parse("(cond -- value)")
+        );
+    }
 }

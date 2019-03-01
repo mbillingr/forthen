@@ -310,13 +310,25 @@ impl Substitutions {
         let b = items.pop().unwrap();
 
         let mut subs = vec![];
-        for a in items.into_iter().map(Sequence::into_item) {
-            if b.contains(&a) {
-                return Err(Error::Incompatible);
-            }
+        for a in items.into_iter() {
+            if a.len() == 1 {
+                let a = a.into_item();
 
-            self.subs.insert(a.clone(), b.clone());
-            subs.push((a, b.clone()));
+                if b.contains(&a) {
+                    return Err(Error::Incompatible);
+                }
+
+                for other_b in self.subs.values_mut() {
+                    other_b.substitute(&a, &b);
+                }
+
+                self.subs.insert(a.clone(), b.clone());
+                subs.push((a, b.clone()));
+            } else {
+                for (a0, b0) in a.match_effects(&b) {
+                    subs.extend(self.add_sequence(a0, b0)?);
+                }
+            }
         }
 
         Ok(subs)
@@ -651,11 +663,15 @@ mod tests {
 
         // CALL (..c f(..c i j -- ..d k) - ..d)
         let c = StackItem::row("c");
-        assert_eq!(astack
-            .pop(StackItem::quot(
-                "f",
-                &[c.clone(), StackItem::item("i"), StackItem::item("j")],
-                &[c.clone(), StackItem::item("k")],
-            )).err(), Some(Error::Incompatible))
+        assert_eq!(
+            astack
+                .pop(StackItem::quot(
+                    "f",
+                    &[c.clone(), StackItem::item("i"), StackItem::item("j")],
+                    &[c.clone(), StackItem::item("k")],
+                ))
+                .err(),
+            Some(Error::Incompatible)
+        )
     }
 }
