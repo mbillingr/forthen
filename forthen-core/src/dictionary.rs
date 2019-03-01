@@ -45,6 +45,10 @@ impl Dictionary {
     pub fn lookup(&self, key: &str) -> Option<&WordId> {
         self.words.get(key)
     }
+
+    pub fn keys(&self) -> Vec<RcString> {
+        self.words.keys().cloned().collect()
+    }
 }
 
 

@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
@@ -197,6 +198,14 @@ impl State {
                 }
                 _ => println!("{:>20}  invalid word", name),
             },
+        }
+    }
+
+    pub fn print_dictionary(&self) {
+        let mut words = self.dictionary.keys();
+        words.sort();
+        for word in words {
+            self.format_word(word.borrow());
         }
     }
 

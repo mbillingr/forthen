@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 /// Wrap `Rc<String>` so that we can implement `Borrow<str>` on it
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct RcString(Rc<String>);
 
 impl std::borrow::Borrow<str> for RcString {
