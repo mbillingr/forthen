@@ -100,7 +100,7 @@ impl StackEffect {
 fn rename_effects(left: &StackEffect, right: &StackEffect) -> (StackEffect, StackEffect) {
     let left_names = left.all_names();
     let right_names = right.all_names();
-    let dups: HashSet<&str> = left_names.union(&right_names).cloned().collect();
+    let dups: HashSet<&str> = left_names.intersection(&right_names).cloned().collect();
 
     let left_rename: HashMap<_, _> = left_names
         .into_iter()
@@ -503,8 +503,6 @@ mod tests {
         let new = StackEffect::parse("( -- x)");
         let rot = StackEffect::parse("(a b c -- b c a)");
         let call = StackEffect::parse("(..a func(..a -- ..b) -- ..b)");
-
-        println!("{}", new.chain(&new).chain(&rot).chain(&call));
 
         assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
         assert_eq!(
