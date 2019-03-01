@@ -56,6 +56,50 @@ impl std::cmp::PartialEq for Object {
     }
 }
 
+impl std::ops::Add for Object {
+    type Output = Object;
+    fn add(self, other: Object) -> Object {
+        use Object::*;
+        match (self, other) {
+            (I32(a), I32(b)) => I32(a + b),
+            _ => panic!("Type Error"),
+        }
+    }
+}
+
+impl std::ops::Sub for Object {
+    type Output = Object;
+    fn sub(self, other: Object) -> Object {
+        use Object::*;
+        match (self, other) {
+            (I32(a), I32(b)) => I32(a - b),
+            _ => panic!("Type Error"),
+        }
+    }
+}
+
+impl std::ops::Mul for Object {
+    type Output = Object;
+    fn mul(self, other: Object) -> Object {
+        use Object::*;
+        match (self, other) {
+            (I32(a), I32(b)) => I32(a * b),
+            _ => panic!("Type Error"),
+        }
+    }
+}
+
+impl std::ops::Div for Object {
+    type Output = Object;
+    fn div(self, other: Object) -> Object {
+        use Object::*;
+        match (self, other) {
+            (I32(a), I32(b)) => I32(a / b),
+            _ => panic!("Type Error"),
+        }
+    }
+}
+
 impl std::cmp::PartialEq<i32> for Object {
     fn eq(&self, other: &i32) -> bool {
         match self {
