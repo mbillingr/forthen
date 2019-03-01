@@ -1,2 +1,2 @@
 [workspace]
-members = ["forthen-core"]
+members = ["forthen-core", "forthen-repl"]
