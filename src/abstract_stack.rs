@@ -1,4 +1,3 @@
-use crate::parsing::tokenize;
 use crate::stack_effect::{EffectNode, StackEffect};
 use std::cell::RefCell;
 use std::collections::HashMap;

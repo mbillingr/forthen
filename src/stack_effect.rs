@@ -24,7 +24,7 @@ impl IntoStackEffect for String {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone)]
 pub struct StackEffect {
     pub(crate) inputs: Vec<EffectNode>,
     pub(crate) outputs: Vec<EffectNode>,
@@ -32,10 +32,7 @@ pub struct StackEffect {
 
 impl StackEffect {
     pub fn new() -> Self {
-        StackEffect {
-            inputs: vec![],
-            outputs: vec![],
-        }
+        StackEffect::default()
     }
 
     pub fn new_pushing(varname: &str) -> Self {
@@ -53,7 +50,7 @@ impl StackEffect {
     }
 
     pub fn parse(input: &str) -> Self {
-        parse_effect(&mut tokenize(input).peekable(), "")
+        parse_effect(&mut tokenize(input).peekable())
     }
 
     pub fn chain(&self, rhs: &Self) -> Self {
@@ -68,7 +65,6 @@ impl StackEffect {
                 (Some(a), Some(b)) if a == b => {
                     if astack.outputs.values[1..]
                         .iter()
-                        .inspect(|&b| println!("{:?}, {:?}, {}", a, b, a == b))
                         .any(|b| a == b)
                     {
                         break;
@@ -85,6 +81,34 @@ impl StackEffect {
             inputs: astack.inputs.into(),
             outputs: astack.outputs.into(),
         }
+    }
+}
+
+fn compare_sequence<'a>(seq_a: &'a [EffectNode], seq_b: &'a [EffectNode], pos_a: &mut HashMap<&'a str, usize>, pos_b: &mut HashMap<&'a str, usize> ) -> bool {
+    for (a, b) in seq_a.iter().zip(seq_b) {            
+        let n = pos_a.len();
+        let m = pos_b.len();
+        let i = pos_a.entry(a.name()).or_insert(n);
+        let j = pos_b.entry(b.name()).or_insert(m);
+
+        if i != j || a != b {
+            return false;
+        }
+    }
+    true
+}
+
+fn compare_effects(in_a: &[EffectNode], out_a: &[EffectNode], in_b: &[EffectNode], out_b: &[EffectNode]) -> bool {
+    let mut self_pos = HashMap::new();
+    let mut other_pos = HashMap::new();
+
+    if !compare_sequence(in_a, in_b, &mut self_pos, &mut other_pos) { return false }
+    compare_sequence(out_a, out_b, &mut self_pos, &mut other_pos)
+}
+
+impl std::cmp::PartialEq for StackEffect {
+    fn eq(&self, other: &Self) -> bool {
+        compare_effects(&self.inputs, &self.outputs, &other.inputs, &other.outputs)
     }
 }
 
@@ -136,9 +160,14 @@ impl std::cmp::PartialEq for EffectNode {
         match (self, other) {
             (Row(_), Row(_)) => true,
             (Item(_), Item(_)) => true,
-            (Quotation(_, ia, oa), Quotation(_, ib, ob)) => ia == ib && oa == ob,
+            (Quotation(_, ia, oa), Quotation(_, ib, ob)) => {
+                let mut a_pos = HashMap::new();
+                let mut b_pos = HashMap::new();
+                if !compare_sequence(ia, ib, &mut a_pos, &mut b_pos) { return false }
+                compare_sequence(oa, ob, &mut a_pos, &mut b_pos)
+            }
             _ => false,
-        }
+        }        
     }
 }
 
@@ -157,8 +186,7 @@ impl std::fmt::Debug for EffectNode {
 }
 
 fn parse_effect<'a>(
-    input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
-    name: &str,
+    input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>
 ) -> StackEffect {
     assert_eq!(input.next(), Some("("));
     let inputs = parse_sequence(input, "--");
@@ -190,12 +218,10 @@ fn parse_sequence<'a>(
 
         let element = if let Some(&"(") = input.peek() {
             parse_quotation(input, token)
+        } else if token.starts_with("..") {
+            EffectNode::Row(token[2..].to_string())
         } else {
-            if token.starts_with("..") {
-                EffectNode::Row(token[2..].to_string())
-            } else {
-                EffectNode::Item(token.to_string())
-            }
+            EffectNode::Item(token.to_string())
         };
 
         sequence.push(element);
