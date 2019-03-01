@@ -128,6 +128,13 @@ impl StackEffect {
 
         StackEffect { inputs, outputs }
     }
+
+    fn prefixed(self, prefix: &str) -> Self {
+        StackEffect {
+            inputs: self.inputs.into_iter().map(| i| i.prefixed(prefix)).collect(),
+            outputs: self.outputs.into_iter().map(|o| o.prefixed(prefix)).collect(),
+        }
+    }
 }
 
 fn rename_effects(left: &StackEffect, right: &StackEffect) -> (StackEffect, StackEffect) {
@@ -229,17 +236,17 @@ impl std::fmt::Display for StackEffect {
 pub(crate) enum EffectNode {
     Row(String),
     Item(String),
-    Quotation(String, Vec<EffectNode>, Vec<EffectNode>),
+    Quotation(String, StackEffect),
 }
 
 impl EffectNode {
     pub fn quoted_effect(name: &str, se: StackEffect) -> Self {
-        EffectNode::Quotation("!".to_owned(), se.inputs, se.outputs).prefixed(name)
+        EffectNode::Quotation("!".to_owned(), se).prefixed(name)
     }
 
     pub fn name(&self) -> &str {
         match self {
-            EffectNode::Row(name) | EffectNode::Item(name) | EffectNode::Quotation(name, _, _) => {
+            EffectNode::Row(name) | EffectNode::Item(name) | EffectNode::Quotation(name, _) => {
                 name
             }
         }
@@ -250,7 +257,7 @@ impl EffectNode {
         match (self, other) {
             (Row(na), Row(nb))
             | (Item(na), Item(nb))
-            | (Quotation(na, _, _), Quotation(nb, _, _)) => na == nb,
+            | (Quotation(na, _), Quotation(nb, _)) => na == nb,
             _ => false,
         }
     }
@@ -262,10 +269,9 @@ impl EffectNode {
             EffectNode::Row(name) | EffectNode::Item(name) => {
                 names.insert(name.as_str());
             }
-            EffectNode::Quotation(name, a, b) => {
+            EffectNode::Quotation(name, se) => {
                 names.insert(name);
-                names.extend(a.iter().flat_map(|i| i.all_names()));
-                names.extend(b.iter().flat_map(|o| o.all_names()));
+                names.extend(se.all_names());
             }
         }
 
@@ -276,10 +282,9 @@ impl EffectNode {
         match self {
             EffectNode::Row(name) => EffectNode::Row(mapping[name.as_str()].clone()),
             EffectNode::Item(name) => EffectNode::Item(mapping[name.as_str()].clone()),
-            EffectNode::Quotation(name, a, b) => EffectNode::Quotation(
+            EffectNode::Quotation(name, se) => EffectNode::Quotation(
                 mapping[name.as_str()].clone(),
-                a.iter().map(|i| i.renamed(mapping)).collect(),
-                b.iter().map(|o| o.renamed(mapping)).collect(),
+                se.renamed(mapping)
             ),
         }
     }
@@ -288,10 +293,9 @@ impl EffectNode {
         match self {
             EffectNode::Row(name) => EffectNode::Row(format!("{}{}", prefix, name)),
             EffectNode::Item(name) => EffectNode::Item(format!("{}{}", prefix, name)),
-            EffectNode::Quotation(name, a, b) => EffectNode::Quotation(
+            EffectNode::Quotation(name, se) => EffectNode::Quotation(
                 format!("{}{}", prefix, name),
-                a.into_iter().map(|i| i.prefixed(prefix)).collect(),
-                b.into_iter().map(|o| o.prefixed(prefix)).collect(),
+                se.prefixed(prefix)
             ),
         }
     }
@@ -299,28 +303,7 @@ impl EffectNode {
     fn simplified(&self) -> Self {
         match self {
             EffectNode::Row(_) | EffectNode::Item(_) => self.clone(),
-            EffectNode::Quotation(name, inputs, outputs) => {
-                let mut inputs = inputs.clone();
-                let mut outputs = outputs.clone();
-
-                loop {
-                    match (inputs.first(), outputs.first()) {
-                        (None, _) | (_, None) => break,
-                        (Some(a), Some(b)) if !a.is_same(b) => break,
-                        (Some(a), Some(b)) if a.is_same(b) => {
-                            if outputs[1..].iter().any(|b| a.is_same(b)) {
-                                break;
-                            }
-                        }
-                        _ => {}
-                    }
-
-                    inputs.remove(0);
-                    outputs.remove(0);
-                }
-
-                EffectNode::Quotation(name.clone(), inputs, outputs)
-            }
+            EffectNode::Quotation(name, se) => EffectNode::Quotation(name.clone(), se.simplified())
         }
     }
 }
@@ -334,8 +317,10 @@ impl From<Sequence> for Vec<EffectNode> {
                 StackItem::Row(ref name) => EffectNode::Row(name.clone()),
                 StackItem::Quotation(ref name, ref a, ref b) => EffectNode::Quotation(
                     name.clone(),
-                    a.clone().into_inner().into(),
-                    b.clone().into_inner().into(),
+                    StackEffect {
+                        inputs: a.clone().into_inner().into(),
+                        outputs: b.clone().into_inner().into(),
+                   }
                 ),
             })
             .collect()
@@ -348,14 +333,7 @@ impl std::cmp::PartialEq for EffectNode {
         match (self, other) {
             (Row(_), Row(_)) => true,
             (Item(_), Item(_)) => true,
-            (Quotation(_, ia, oa), Quotation(_, ib, ob)) => {
-                let mut a_pos = HashMap::new();
-                let mut b_pos = HashMap::new();
-                if !compare_sequence(ia, ib, &mut a_pos, &mut b_pos) {
-                    return false;
-                }
-                compare_sequence(oa, ob, &mut a_pos, &mut b_pos)
-            }
+            (Quotation(_, sea), Quotation(_, seb)) => sea == seb,
             _ => false,
         }
     }
@@ -366,10 +344,8 @@ impl std::fmt::Debug for EffectNode {
         match self.simplified() {
             EffectNode::Row(name) => write!(f, "..{}", name),
             EffectNode::Item(name) => write!(f, "{}", name),
-            EffectNode::Quotation(name, a, b) => {
-                let a: Vec<_> = a.iter().map(|x| format!("{:?}", x)).collect();
-                let b: Vec<_> = b.iter().map(|x| format!("{:?}", x)).collect();
-                write!(f, "{}({} -- {})", name, a.join(" "), b.join(" "))
+            EffectNode::Quotation(name, se) => {
+                write!(f, "{}({})", name, se)
             }
         }
     }
@@ -401,25 +377,8 @@ fn parse_quotation<'a>(
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     name: &str,
 ) -> EffectNode {
-    assert_eq!(input.next(), Some("("));
-    let mut inputs = parse_sequence(input, "--");
-    let mut outputs = parse_sequence(input, ")");
-
-    match (inputs.get(0), outputs.get(0)) {
-        (Some(EffectNode::Row(_)), _) => {}
-        (_, Some(EffectNode::Row(_))) => {}
-        _ => {
-            let mut tmp = vec![EffectNode::Row("_".to_string())];
-            tmp.extend(inputs);
-            inputs = tmp;
-
-            let mut tmp = vec![EffectNode::Row("_".to_string())];
-            tmp.extend(outputs);
-            outputs = tmp;
-        }
-    }
-
-    EffectNode::Quotation(name.to_string(), inputs, outputs)
+    let se = parse_effect(input);
+    EffectNode::Quotation(name.to_string(), se)
 }
 
 fn parse_sequence<'a>(

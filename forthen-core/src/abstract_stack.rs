@@ -458,12 +458,12 @@ fn make_item(effect: &EffectNode, names: &mut HashMap<String, Sequence>) -> Sequ
             .entry(name.clone())
             .or_insert_with(|| Sequence::single(StackItem::row(name)))
             .clone(),
-        EffectNode::Quotation(name, inputs, outputs) => {
-            let inputs: Vec<_> = inputs
+        EffectNode::Quotation(name, se) => {
+            let inputs: Vec<_> = se.inputs
                 .iter()
                 .map(|node| make_item(node, names).into_item())
                 .collect();
-            let outputs: Vec<_> = outputs
+            let outputs: Vec<_> = se.outputs
                 .iter()
                 .map(|node| make_item(node, names).into_item())
                 .collect();
