@@ -46,3 +46,10 @@ impl Dictionary {
         self.words.get(key)
     }
 }
+
+
+impl std::fmt::Display for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}

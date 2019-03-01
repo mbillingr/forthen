@@ -262,6 +262,12 @@ mod tests {
         state.add_native_word("true", "( -- b)", |state| state.push(Object::True));
         state.add_native_word("false", "( -- b)", |state| state.push(Object::False));
 
+        state.run(":: dup   set x get x get x ;");
+        state.run(":: swap   set x set y get x get y ;");
+        state.run(":: over   set b set a get a get b get a ;");
+        state.run(":: rot   set c set b set a get b get c get a  ;");
+        state.run(":: drop   set x ;");
+
         state.run("123"); // push sentinel value on stack
 
         state.run("false [ \"yes\" ] [ \"no\" ] if");
@@ -270,19 +276,23 @@ mod tests {
         state.run("true [ \"yes\" ] [ \"no\" ] if");
         assert_eq!(state.pop_str().unwrap(), "yes");
 
-        state.run(": yes-or-no [ \"yes\" ] [ \"no\" ] if ;");
+        state.run(": yes-or-no [ \"yes\" dup ] [ \"no\" \"no\" ] if ;");
 
         state.run("false yes-or-no");
+        println!("{:?}", state.stack);
+        assert_eq!(state.pop_str().unwrap(), "no");
         assert_eq!(state.pop_str().unwrap(), "no");
 
         state.run("true yes-or-no");
         assert_eq!(state.pop_str().unwrap(), "yes");
+        assert_eq!(state.pop_str().unwrap(), "yes");
+
+        assert_eq!(state.pop_i32(), Some(123));
 
         state.run(": put [ 42 ] ;");
 
         state.format_word("if");
         state.format_word("yes-or-no");
         state.format_word("put");
-        panic!()
     }
 }

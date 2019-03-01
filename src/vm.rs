@@ -30,6 +30,16 @@ impl Opcode {
     }
 }
 
+impl std::fmt::Display for Opcode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Opcode::Push(obj) => write!(f, "{:?}", obj),
+            Opcode::Call(obj) => write!(f, "{:?}", obj),
+            Opcode::TailRecurse => write!(f, "<tail recurse>"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Quotation {
     pub ops: Vec<Opcode>,
@@ -53,5 +63,12 @@ impl Quotation {
             }
             break;
         }
+    }
+}
+
+impl std::fmt::Display for Quotation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let items: Vec<_> = self.ops.iter().map(|op| format!("{}", op)).collect();
+        write!(f, "{}", items.join(" "))
     }
 }
