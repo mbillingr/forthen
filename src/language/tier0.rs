@@ -40,8 +40,6 @@ impl State {
         });
 
         self.add_native_parse_word("[", |state| {
-            // todo: parse stack effect from word definition and compare against derived stack effect?
-
             state.begin_compile();
             state.parse_until("]");
             let quot = state.pop().into_rc_quotation();
@@ -280,8 +278,11 @@ mod tests {
         state.run("true yes-or-no");
         assert_eq!(state.pop_str().unwrap(), "yes");
 
+        state.run(": put [ 42 ] ;");
+
         state.format_word("if");
         state.format_word("yes-or-no");
+        state.format_word("put");
         panic!()
     }
 }

@@ -22,6 +22,7 @@ impl Opcode {
     pub fn stack_effect(&self) -> StackEffect {
         use Opcode::*;
         match self {
+            Push(Object::Quotation(_, se)) => StackEffect::new_quotation("f", se.clone()),
             Push(_) => StackEffect::new_pushing("x"),
             Call(obj) => obj.get_stack_effect(),
             TailRecurse => unimplemented!(),
