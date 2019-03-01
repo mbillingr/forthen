@@ -10,7 +10,7 @@ pub type ItemRef = RefHash<StackItem>;
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     Incompatible,
 }
@@ -651,24 +651,11 @@ mod tests {
 
         // CALL (..c f(..c i j -- ..d k) - ..d)
         let c = StackItem::row("c");
-        astack
+        assert_eq!(astack
             .pop(StackItem::quot(
                 "f",
                 &[c.clone(), StackItem::item("i"), StackItem::item("j")],
                 &[c.clone(), StackItem::item("k")],
-            ))
-            .unwrap();
-        let c = astack.pop(c).unwrap();
-        astack.push(c);
-
-        println!("{:?}", astack);
-    }
-
-    #[test]
-    fn stack_effects() {
-        let swap = StackEffect::parse("(x y -- y x)");
-        let call = StackEffect::parse("(..a f(..a -- ..b) -- ..b)");
-
-        panic!("{}", swap.chain(&call))
+            )).err(), Some(Error::Incompatible))
     }
 }
