@@ -1,9 +1,10 @@
 use forthen_core::State;
+use forthen_std::{tier0, tier1};
 
 fn main() {
-    let mut state = State::new();
-    state.tier0();
-    state.tier1();
+    let state = &mut State::new();
+    tier0(state);
+    tier1(state);
 
     state.run("3 5 \"hello forth!\" .s");
     state.run("3 5 \"hello forth!\" .s");

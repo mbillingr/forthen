@@ -1,13 +1,8 @@
 [package]
-name = "forthen-repl"
+name = "forthen-std"
 version = "0.1.0"
 authors = ["Martin Billinger <flkazemakase@gmail.com>"]
 edition = "2018"
 
-[[bin]]
-name = "forthen"
-path = "src/main.rs"
-
 [dependencies]
 forthen-core = { path = "../forthen-core" }
-forthen-std = { path = "../forthen-std" }

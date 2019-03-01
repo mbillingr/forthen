@@ -1,6 +1,5 @@
 mod abstract_stack;
 mod dictionary;
-mod language;
 mod object;
 mod object_factory;
 mod parsing;
@@ -13,8 +12,10 @@ mod testing;
 mod vm;
 
 pub use object::Object;
+pub use scope::CompilerScope;
 pub use stack_effect::StackEffect;
 pub use state::State;
+pub use vm::{Opcode, Quotation};
 
 #[cfg(test)]
 mod tests {
