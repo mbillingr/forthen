@@ -1,3 +1,4 @@
+use crate::abstract_stack::{AbstractStack, Sequence, StackItem};
 use crate::parsing::tokenize;
 use std::collections::HashMap;
 
@@ -23,395 +24,190 @@ impl IntoStackEffect for String {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-enum Kind {
-    Value,
-    Effect(SubEffect),
-    Unspecified,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct StackValue {
-    name: String,
-    kind: Kind,
-}
-
-impl StackValue {
-    fn new(name: &str) -> Self {
-        StackValue {
-            name: name.to_string(),
-            kind: Kind::Value,
-        }
-    }
-
-    fn parse(token: &str) -> Self {
-        if token.starts_with("..") {
-            StackValue {
-                name: token.to_string(),
-                kind: Kind::Unspecified,
-            }
-        } else {
-            StackValue::new(token)
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct SubEffect {
-    inputs: Vec<usize>,
-    outputs: Vec<usize>,
-}
-
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StackEffect {
-    values: Vec<StackValue>,
-    inputs: Vec<usize>,
-    outputs: Vec<usize>,
+    pub(crate) inputs: Vec<EffectNode>,
+    pub(crate) outputs: Vec<EffectNode>,
 }
 
 impl StackEffect {
     pub fn new() -> Self {
         StackEffect {
-            values: vec![],
             inputs: vec![],
             outputs: vec![],
         }
     }
 
-    /// simple stack effect of pushing a value on the stack
     pub fn new_pushing(varname: &str) -> Self {
         StackEffect {
-            values: vec![StackValue::new(varname)],
             inputs: vec![],
-            outputs: vec![0],
+            outputs: vec![EffectNode::Item(varname.to_string())],
         }
     }
 
-    /// simple stack effect of modifying a value on the stack
     pub fn new_mod(varname: &str) -> Self {
         StackEffect {
-            values: vec![StackValue::new(varname)],
-            inputs: vec![0],
-            outputs: vec![0],
+            inputs: vec![EffectNode::Item(varname.to_string())],
+            outputs: vec![EffectNode::Item(varname.to_string())],
         }
     }
 
     pub fn parse(input: &str) -> Self {
-        StackEffect::parse_recursive(&mut tokenize(input).peekable()).link_nested_effects()
+        parse_effect(&mut tokenize(input).peekable(), "")
     }
 
-    pub fn parse_recursive<'a>(
-        input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
-    ) -> Self {
-        let mut se = StackEffect::new();
+    pub fn chain(&self, rhs: &Self) -> Self {
+        let mut astack = AbstractStack::new();
+        astack.apply_effect(self).unwrap();
+        astack.apply_effect(rhs).unwrap();
 
-        assert!(input.next().expect("Unexpected end of stack effect") == "(");
-
-        while let Some(token) = input.peek() {
-            if *token == "--" {
-                break;
-            }
-            if *token == "(" {
-                let effect = StackEffect::parse_recursive(input);
-                let iv = *se
-                    .inputs
-                    .last()
-                    .expect("Expected name before nested stack effect");
-                se.values[iv].kind = Kind::Effect(se.convert_subeffect(effect));
-            } else {
-                assert!(
-                    se.input_values().all(|val| val.name != *token),
-                    "Stack effects inputs must have unique names"
-                );
-                se.inputs.push(se.values.len());
-                se.values.push(StackValue::parse(token));
-                input.next();
-            }
-        }
-
-        assert_eq!(input.next(), Some("--"), "Unexpected end of stack effect");
-
-        while let Some(token) = input.peek() {
-            if *token == ")" {
-                break;
-            } else if *token == "(" {
-                let effect = StackEffect::parse_recursive(input);
-                let ov = *se
-                    .outputs
-                    .last()
-                    .expect("Expected name before nested stack effect");
-                se.values[ov].kind = Kind::Effect(se.convert_subeffect(effect));
-            } else if let Some(pos) = se.find_value(token) {
-                se.outputs.push(pos);
-            } else {
-                se.outputs.push(se.values.len());
-                se.values.push(StackValue::parse(token));
-            }
-            input.next();
-        }
-
-        assert_eq!(input.next(), Some(")"), "Unexpected end of stack effect");
-
-        se
-    }
-
-    fn convert_subeffect(&mut self, se: StackEffect) -> SubEffect {
-        let mut inputs = vec![];
-        let mut outputs = vec![];
-
-        for i in se.input_values() {
-            if let Some(pos) = self.find_value(&i.name) {
-                inputs.push(pos);
-            } else {
-                inputs.push(self.values.len());
-                self.values.push(i.clone());
-            }
-        }
-
-        for o in se.output_values() {
-            if let Some(pos) = self.find_value(&o.name) {
-                outputs.push(pos);
-            } else {
-                outputs.push(self.values.len());
-                self.values.push(o.clone());
-            }
-        }
-
-        SubEffect {
-            inputs, outputs
-        }
-    }
-
-    fn link_nested_effects(self) -> Self {
-        self
-        //unimplemented!()
-    }
-
-    fn input_values(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = &StackValue> + ExactSizeIterator<Item = &StackValue> {
-        self.inputs.iter().map(move |&iv| &self.values[iv])
-    }
-
-    fn output_values(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = &StackValue> + ExactSizeIterator<Item = &StackValue> {
-        self.outputs.iter().map(move |&iv| &self.values[iv])
-    }
-
-    fn find_value(&self, name: &str) -> Option<usize> {
-        self.values.iter().position(|val| val.name == name)
-    }
-
-    fn add_value(&mut self, val: StackValue) -> usize {
-        let idx = self.values.len();
-        self.values.push(val);
-        idx
-    }
-
-    fn value_idx(&mut self, val: &StackValue) -> usize {
-        self.values.iter().position(|v| v == val).unwrap_or_else(|| self.add_value(val.clone()))
-    }
-
-    fn replace_value_with_subeffect_from(&mut self, idx: usize, se: &StackEffect, mut sub: SubEffect, name: String) {
-        for i in &mut sub.inputs {
-            *i = self.value_idx(&se.values[*i]);
-        }
-        for o in &mut sub.outputs {
-            *o = self.value_idx(&se.values[*o]);
-        }
-        self.values[idx].name = name;
-        self.values[idx].kind = Kind::Effect(sub);
-    }
-
-    pub fn chain(&self, rhs: &StackEffect) -> Self {
-        let mut se = self.clone();
-
-        println!("{:?} {:?}", se.values, rhs.values);
-
-        let mut inputs = Vec::new();
-        let mut pre_inputs = Vec::new();
-
-        for &i in rhs.inputs.iter().rev() {
-            match se.outputs.pop() {
-                Some(o) => {
-                    let item = &se.values[o];
-                    match (&se.values[o].kind, &rhs.values[i].kind) {
-                        (Kind::Value, Kind::Value) => inputs.push(o),
-                        (Kind::Value, Kind::Effect(sub)) => {
-                            se.replace_value_with_subeffect_from(o, rhs, sub.clone(), rhs.values[i].name.clone());
-                            inputs.push(o);
-                        }
-                        (Kind::Value, Kind::Unspecified) => {
-                            // todo
-                            panic!("{:?}", se.values);
-                        }
-                        (a, b) => unimplemented!("{:?}, {:?}", a, b),
-                        //Kind::Unspecified => unimplemented!(),
-                        //Kind::Effect(_) => unimplemented!(),
+        loop {
+            match (astack.inputs.front(), astack.outputs.front()) {
+                (None, _) | (_, None) => break,
+                (Some(a), Some(b)) if a != b => break,
+                (Some(a), Some(b)) if a == b => {
+                    if astack.outputs.values[1..]
+                        .iter()
+                        .inspect(|&b| println!("{:?}, {:?}, {}", a, b, a == b))
+                        .any(|b| a == b)
+                    {
+                        break;
                     }
-                },
-                None => {
-                    let idx = se.add_value(rhs.values[i].clone());
-                    inputs.push(idx);
-                    pre_inputs.push(idx)
-                },
+                }
+                _ => {}
             }
+
+            astack.inputs.pop_front();
+            astack.outputs.pop_front();
         }
 
-        pre_inputs.reverse();
-        pre_inputs.extend(se.inputs);
-        se.inputs = pre_inputs;
-
-        inputs.reverse();
-
-        for &o in &rhs.outputs {
-            let idx = match rhs.inputs.iter().position(|&i| i == o) {
-                Some(i) => inputs[i],
-                None => se.value_idx(&rhs.values[o]),
-            };
-            se.outputs.push(idx);
+        StackEffect {
+            inputs: astack.inputs.into(),
+            outputs: astack.outputs.into(),
         }
-
-        se.resolve_name_conflicts();
-
-        se
-    }
-
-    pub fn resolve(&mut self, _inputs: &[Option<StackEffect>]) {
-        unimplemented!()
-        /*for (val, j) in self.inputs.iter()
-            .map(|&i| &self.values[i])
-            .filter(|val| val.kind != Kind::Unspecified)
-            .zip(inputs)
-        {
-            match (&val.kind, j) {
-                (Kind::Unspecified, _) => unreachable!(),
-                (Kind::Value, _) => {},
-                (Kind::Effect(_), None) => panic!("expected quotation"),
-                (Kind::Effect(ref template), Some(ref actual)) => {
-                    // stack effect: (..a func(..a -- ..b) -- ..b)
-                    //  with inputs: [(x y -- z)]  ->  ..a := xy; ..b := z  ->  (x y -- z)
-
-                    // : apply   ( -- x y)   20 10
-                    // : apply   (f -- x y f)   20 10 rot
-                    // : apply   (..a f(..a x y -- ..b) -- ..b)   20 10 rot call
-                    unimplemented!()
-                },
-            }
-        }*/
-    }
-
-    fn resolve_name_conflicts(&mut self) {
-        let mut name_counts = HashMap::new();
-
-        for val in &mut self.values {
-            let c = name_counts.entry(val.name.clone()).or_insert(0);
-            if *c == 0 {
-                *c += 1;
-            } else {
-                val.name += &format!("{}", c);
-                *c += 1;
-            }
-        }
-    }
-
-    fn format_iter(&self, f: &mut std::fmt::Formatter, iter: impl Iterator<Item=usize>) -> std::fmt::Result {
-        for idx in iter {
-            let val = &self.values[idx];
-            match val.kind {
-                Kind::Value |
-                Kind::Unspecified => write!(f, " {}", val.name)?,
-                Kind::Effect(ref se) => {
-                    write!(f, " {}(", val.name)?;
-                    self.format_iter(f, se.inputs.iter().cloned())?;
-                    write!(f, " --")?;
-                    self.format_iter(f, se.outputs.iter().cloned())?;
-                    write!(f, " )")?;
-                },
-            }
-        }
-        Ok(())
-    }
-}
-
-impl std::cmp::PartialEq for StackEffect {
-    fn eq(&self, rhs: &Self) -> bool {
-        let n = self.inputs.len();
-        let m = self.outputs.len();
-
-        if n != rhs.inputs.len() {
-            return false;
-        }
-        if m != rhs.outputs.len() {
-            return false;
-        }
-
-        let mut a = StackEffectRealization::from_stack_effect(self);
-        let mut b = StackEffectRealization::from_stack_effect(rhs);
-
-        for i in 0..n {
-            a.set_input(i, i);
-            b.set_input(i, i);
-        }
-
-        for o in 0..m {
-            if a.get_output(o) != b.get_output(o) {
-                return false;
-            }
-        }
-
-        true
     }
 }
 
 impl std::fmt::Display for StackEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "(")?;
-        self.format_iter(f, self.inputs.iter().cloned())?;
-        write!(f, " --")?;
-        self.format_iter(f, self.outputs.iter().cloned())?;
-        write!(f, " )")
+        let a: Vec<_> = self.inputs.iter().map(|x| format!("{:?}", x)).collect();
+        let b: Vec<_> = self.outputs.iter().map(|x| format!("{:?}", x)).collect();
+        write!(f, "{} -- {}", a.join(" "), b.join(" "))
     }
 }
 
-#[derive(Debug)]
-struct StackEffectRealization<'a, T> {
-    se: &'a StackEffect,
-    values: Vec<Option<T>>,
+#[derive(Clone)]
+pub(crate) enum EffectNode {
+    Row(String),
+    Item(String),
+    Quotation(String, Vec<EffectNode>, Vec<EffectNode>),
 }
 
-impl<'a, T: Clone> StackEffectRealization<'a, T> {
-    fn from_stack_effect(se: &'a StackEffect) -> Self {
-        StackEffectRealization {
-            se,
-            values: vec![None; se.values.len()],
+impl EffectNode {
+    pub fn name(&self) -> &str {
+        match self {
+            EffectNode::Row(name) | EffectNode::Item(name) | EffectNode::Quotation(name, _, _) => {
+                name
+            }
         }
     }
+}
 
-    fn set_input(&mut self, i: usize, val: T) {
-        let idx = self.se.inputs[i];
-        assert!(self.values[idx].is_none());
-        self.values[idx] = Some(val);
+impl From<Sequence> for Vec<EffectNode> {
+    fn from(seq: Sequence) -> Self {
+        seq.values
+            .iter()
+            .map(|x| match **x {
+                StackItem::Item(ref name) => EffectNode::Item(name.clone()),
+                StackItem::Row(ref name) => EffectNode::Row(name.clone()),
+                StackItem::Quotation(ref name, ref a, ref b) => EffectNode::Quotation(
+                    name.clone(),
+                    a.clone().into_inner().into(),
+                    b.clone().into_inner().into(),
+                ),
+            })
+            .collect()
     }
+}
 
-    /*fn set_output(&mut self, i: usize, val: T) {
-        let idx = self.se.outputs[i];
-        assert!(self.values[idx].is_none());
-        self.values[idx] = Some(val);
-    }*/
-
-    fn get_output(&self, o: usize) -> Option<&T> {
-        let idx = self.se.outputs[o];
-        self.values[idx].as_ref()
+impl std::cmp::PartialEq for EffectNode {
+    fn eq(&self, other: &Self) -> bool {
+        use EffectNode::*;
+        match (self, other) {
+            (Row(_), Row(_)) => true,
+            (Item(_), Item(_)) => true,
+            (Quotation(_, ia, oa), Quotation(_, ib, ob)) => ia == ib && oa == ob,
+            _ => false,
+        }
     }
+}
+
+impl std::fmt::Debug for EffectNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            EffectNode::Row(name) => write!(f, "..{}", name),
+            EffectNode::Item(name) => write!(f, "{}", name),
+            EffectNode::Quotation(name, a, b) => {
+                let a: Vec<_> = a.iter().map(|x| format!("{:?}", x)).collect();
+                let b: Vec<_> = b.iter().map(|x| format!("{:?}", x)).collect();
+                write!(f, "{}({} -- {})", name, a.join(" "), b.join(" "))
+            }
+        }
+    }
+}
+
+fn parse_effect<'a>(
+    input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    name: &str,
+) -> StackEffect {
+    assert_eq!(input.next(), Some("("));
+    let inputs = parse_sequence(input, "--");
+    let outputs = parse_sequence(input, ")");
+
+    StackEffect { inputs, outputs }
+}
+
+fn parse_quotation<'a>(
+    input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    name: &str,
+) -> EffectNode {
+    assert_eq!(input.next(), Some("("));
+    let inputs = parse_sequence(input, "--");
+    let outputs = parse_sequence(input, ")");
+
+    EffectNode::Quotation(name.to_string(), inputs, outputs)
+}
+
+fn parse_sequence<'a>(
+    input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    terminator: &str,
+) -> Vec<EffectNode> {
+    let mut sequence = vec![];
+    while let Some(token) = input.next() {
+        if token == terminator {
+            return sequence;
+        }
+
+        let element = if let Some(&"(") = input.peek() {
+            parse_quotation(input, token)
+        } else {
+            if token.starts_with("..") {
+                EffectNode::Row(token[2..].to_string())
+            } else {
+                EffectNode::Item(token.to_string())
+            }
+        };
+
+        sequence.push(element);
+    }
+    panic!("Unexpected end of input")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
+    /*#[test]
     fn parse_effects() {
         let swap = StackEffect::parse("(a b -- b a)");
 
@@ -473,7 +269,7 @@ mod tests {
                 outputs: vec![1, 2, 0],
             }
         );
-    }
+    }*/
 
     #[test]
     fn equivalence_effects() {
@@ -517,13 +313,12 @@ mod tests {
         let drop3 = StackEffect::parse("(a b c -- )");
 
         assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
-        assert_eq!(swap.chain(&swap), StackEffect::parse("(a b -- a b)"));
+        assert_eq!(swap.chain(&swap), StackEffect::parse("( -- )"));
         assert_eq!(dup.chain(&dup), StackEffect::parse("(x -- x x x)"));
         assert_eq!(drop.chain(&drop), StackEffect::parse("(b a -- )"));
         assert_eq!(put.chain(&put), StackEffect::parse("(a b -- c d a b)"));
 
-        assert_eq!(dup.chain(&drop), StackEffect::parse("(x -- x)"));
-        assert_ne!(dup.chain(&drop), StackEffect::parse("(a b -- a b)"));
+        assert_eq!(dup.chain(&drop), StackEffect::parse("( -- )"));
 
         assert_eq!(swap.chain(&put), StackEffect::parse("(a b -- c b a)"));
         assert_eq!(put.chain(&swap), StackEffect::parse("(a b -- c b a)"));
@@ -585,14 +380,17 @@ mod tests {
         let rot = StackEffect::parse("(a b c -- b c a)");
         let call = StackEffect::parse("(..a func(..a -- ..b) -- ..b)");
 
-        println!("{:?}", call.values);
-
         println!("{}", new.chain(&new).chain(&rot).chain(&call));
 
         assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
-        assert_eq!(new.chain(&new).chain(&rot), StackEffect::parse("(f -- x y f)"));
-        assert_eq!(new.chain(&new).chain(&rot).chain(&call), StackEffect::parse("(..a f(..a x y -- ..b) -- ..b)"));
-
+        assert_eq!(
+            new.chain(&new).chain(&rot),
+            StackEffect::parse("(f -- x y f)")
+        );
+        assert_eq!(
+            new.chain(&new).chain(&rot).chain(&call),
+            StackEffect::parse("(..a f(..a x y -- ..b) -- ..b)")
+        );
     }
 
     #[test]

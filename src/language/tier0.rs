@@ -144,16 +144,20 @@ impl State {
             func.invoke(state);
         });
 
-        self.add_native_word("if", "(..a ? true(..a -- ..b) false(..a -- ..b) -- ..b)", |state| {
-            let else_branch = state.pop();
-            let if_branch = state.pop();
-            let cond = state.pop().try_into_bool().unwrap();
-            if cond {
-                if_branch.invoke(state);
-            } else {
-                else_branch.invoke(state);
-            }
-        })
+        self.add_native_word(
+            "if",
+            "(..a ? true(..a -- ..b) false(..a -- ..b) -- ..b)",
+            |state| {
+                let else_branch = state.pop();
+                let if_branch = state.pop();
+                let cond = state.pop().try_into_bool().unwrap();
+                if cond {
+                    if_branch.invoke(state);
+                } else {
+                    else_branch.invoke(state);
+                }
+            },
+        )
     }
 }
 

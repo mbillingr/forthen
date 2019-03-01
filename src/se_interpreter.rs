@@ -10,15 +10,14 @@ fn stack_effect_interpreter(quot: &Quotation) -> StackEffect {
         }
         se = se.chain(op.stack_effect());
     }*/
-
-    unimplemented!()
+unimplemented!()
 }
 
 struct AbstractEffectStack {}
 
 impl AbstractEffectStack {
-    fn new() -> Self {
-        AbstractEffectStack {}
-    }
+fn new() -> Self {
+AbstractEffectStack {}
+}
 }
 */
