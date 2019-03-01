@@ -11,3 +11,5 @@ path = "src/main.rs"
 [dependencies]
 forthen-core = { path = "../forthen-core" }
 forthen-std = { path = "../forthen-std" }
+
+rustyline = "3"

@@ -1,6 +1,5 @@
 use forthen_core::State;
 
-
 /// Load language tier 1 into the dictionary
 ///
 /// Tier 1 contains low level native words that form the basic building blocks of the language
@@ -17,7 +16,6 @@ pub fn tier1(state: &mut State) {
     state.add_native_word("swap", "(a b -- b a)", State::swap);
     state.add_native_word("over", "(a b -- a b a)", State::over);
 }
-
 
 #[cfg(test)]
 mod tests {

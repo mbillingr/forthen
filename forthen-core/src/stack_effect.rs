@@ -41,21 +41,33 @@ impl StackEffect {
     pub fn new_pushing(varname: &str) -> Self {
         StackEffect {
             inputs: vec![EffectNode::Row("_".to_string())],
-            outputs: vec![EffectNode::Row("_".to_string()), EffectNode::Item(varname.to_string())],
+            outputs: vec![
+                EffectNode::Row("_".to_string()),
+                EffectNode::Item(varname.to_string()),
+            ],
         }
     }
 
     pub fn new_quotation(name: &str, effect: StackEffect) -> Self {
         StackEffect {
             inputs: vec![EffectNode::Row("_".to_string())],
-            outputs: vec![EffectNode::Row("_".to_string()), EffectNode::quoted_effect(name, effect)],
+            outputs: vec![
+                EffectNode::Row("_".to_string()),
+                EffectNode::quoted_effect(name, effect),
+            ],
         }
     }
 
     pub fn new_mod(varname: &str) -> Self {
         StackEffect {
-            inputs: vec![EffectNode::Row("_".to_string()), EffectNode::Item(varname.to_string())],
-            outputs: vec![EffectNode::Row("_".to_string()), EffectNode::Item(varname.to_string())],
+            inputs: vec![
+                EffectNode::Row("_".to_string()),
+                EffectNode::Item(varname.to_string()),
+            ],
+            outputs: vec![
+                EffectNode::Row("_".to_string()),
+                EffectNode::Item(varname.to_string()),
+            ],
         }
     }
 
@@ -65,7 +77,7 @@ impl StackEffect {
 
     pub fn chain(&self, rhs: &Self) -> Self {
         let (a, b) = rename_effects(self, rhs);
-        
+
         //println!("({}) ({})", a, b);
 
         let mut astack = AbstractStack::new();
@@ -114,9 +126,7 @@ impl StackEffect {
             outputs.remove(0);
         }
 
-        StackEffect {
-            inputs, outputs
-        }
+        StackEffect { inputs, outputs }
     }
 }
 
@@ -238,10 +248,10 @@ impl EffectNode {
     fn is_same(&self, other: &Self) -> bool {
         use EffectNode::*;
         match (self, other) {
-            (Row(na), Row(nb)) |
-            (Item(na), Item(nb)) |
-            (Quotation(na, _, _), Quotation(nb, _, _)) => na == nb,
-            _ => false
+            (Row(na), Row(nb))
+            | (Item(na), Item(nb))
+            | (Quotation(na, _, _), Quotation(nb, _, _)) => na == nb,
+            _ => false,
         }
     }
 
@@ -288,8 +298,7 @@ impl EffectNode {
 
     fn simplified(&self) -> Self {
         match self {
-            EffectNode::Row(_) |
-            EffectNode::Item(_) => self.clone(),
+            EffectNode::Row(_) | EffectNode::Item(_) => self.clone(),
             EffectNode::Quotation(name, inputs, outputs) => {
                 let mut inputs = inputs.clone();
                 let mut outputs = outputs.clone();
@@ -378,7 +387,7 @@ fn parse_effect<'a>(input: &mut std::iter::Peekable<impl Iterator<Item = &'a str
             let mut tmp = vec![EffectNode::Row("_".to_string())];
             tmp.extend(inputs);
             inputs = tmp;
-            
+
             let mut tmp = vec![EffectNode::Row("_".to_string())];
             tmp.extend(outputs);
             outputs = tmp;
@@ -403,7 +412,7 @@ fn parse_quotation<'a>(
             let mut tmp = vec![EffectNode::Row("_".to_string())];
             tmp.extend(inputs);
             inputs = tmp;
-            
+
             let mut tmp = vec![EffectNode::Row("_".to_string())];
             tmp.extend(outputs);
             outputs = tmp;

@@ -1,11 +1,10 @@
 use std::rc::Rc;
 
-use forthen_core::Object;
 use forthen_core::CompilerScope;
+use forthen_core::Object;
 use forthen_core::StackEffect;
 use forthen_core::State;
 use forthen_core::{Opcode, Quotation};
-
 
 /// Load language tier 0 into the dictionary
 ///
