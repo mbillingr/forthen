@@ -19,7 +19,12 @@ pub fn tier0(state: &mut State) -> Result<()> {
     state.add_native_parse_word("SYNTAX:", |state| {
         let name = state.next_token().expect("word name");
         state.begin_compile();
-        state.parse_until(";")?;
+
+        if let Err(e) = state.parse_until(";") {
+            state.pop().unwrap();
+            return Err(e)
+        }
+
         let obj = state.pop()?;
         state.add_compound_parse_word(name, obj.try_into_rc_quotation()?);
         Ok(())
@@ -31,7 +36,12 @@ pub fn tier0(state: &mut State) -> Result<()> {
         let name = state.next_token().expect("word name");
 
         state.begin_compile();
-        state.parse_until(";")?;
+
+        if let Err(e) = state.parse_until(";") {
+            state.pop().unwrap();
+            return Err(e)
+        }
+
         let quot = state.pop()?.try_into_rc_quotation()?;
 
         let mut se = StackEffect::new();
@@ -45,7 +55,11 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
     state.add_native_parse_word("[", |state| {
         state.begin_compile();
-        state.parse_until("]")?;
+
+        if let Err(e) = state.parse_until("]") {
+            state.pop().unwrap();
+            return Err(e)
+        }
         let quot = state.pop()?.try_into_rc_quotation()?;
 
         let mut se = StackEffect::new();
@@ -131,7 +145,12 @@ pub fn tier0(state: &mut State) -> Result<()> {
         state.scopes.push(CompilerScope::new());
 
         state.begin_compile();
-        state.parse_until(";")?;
+
+        if let Err(e) = state.parse_until(";") {
+            state.pop().unwrap();
+            state.scopes.pop().unwrap();
+            return Err(e)
+        }
 
         let scope = state.scopes.pop().unwrap();
         let n_vars = scope.len() as i32;

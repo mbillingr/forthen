@@ -39,9 +39,16 @@ impl State {
         self.input_tokens
             .extend(tokenize(input).map(str::to_string));
         self.begin_compile();
+
         while let Some(token) = self.next_token() {
-            self.parse_token(&token)?;
+            if let Err(e) = self.parse_token(&token) {
+                // clean up in case of error
+                self.pop().unwrap();
+                self.input_tokens.clear();
+                return Err(e);
+            }
         }
+
         let quot = self.pop()?.try_into_rc_quotation()?;
         quot.run(self)
     }
