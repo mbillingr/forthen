@@ -3,7 +3,9 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use crate::dictionary::{Dictionary, Entry, Word};
-use crate::object::Object;
+use crate::error::ParseError;
+use crate::error::{Result, StackError};
+use crate::object::{NativeFunction, Object};
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::parsing::tokenize;
 use crate::scope::CompilerScope;
@@ -33,65 +35,68 @@ impl State {
         }
     }
 
-    pub fn run(&mut self, input: &str) {
+    pub fn run(&mut self, input: &str) -> Result<()> {
         self.input_tokens
             .extend(tokenize(input).map(str::to_string));
         self.begin_compile();
         while let Some(token) = self.next_token() {
-            self.parse_token(&token);
+            self.parse_token(&token)?;
         }
-        let quot = self.pop().into_rc_quotation();
+        let quot = self.pop()?.try_into_rc_quotation()?;
         quot.run(self)
     }
 
-    pub fn run_sequence(&mut self, ops: &[Object]) {
+    pub fn run_sequence(&mut self, ops: &[Object]) -> Result<()> {
         for op in ops {
-            op.clone().invoke(self);
+            op.clone().invoke(self)?;
         }
+        Ok(())
     }
 
     pub fn next_token(&mut self) -> Option<String> {
         self.input_tokens.pop_front()
     }
 
-    pub fn parse_until(&mut self, delimiter: &str) {
+    pub fn parse_until(&mut self, delimiter: &str) -> Result<()> {
         loop {
             match self.next_token() {
-                None => panic!("Parse Error"),
+                None => return Err(ParseError::EndOfInput.into()),
                 Some(ref token) if token == delimiter => break,
-                Some(token) => self.parse_token(&token),
+                Some(token) => self.parse_token(&token)?,
             }
         }
+        Ok(())
     }
 
-    pub fn parse_token(&mut self, token: &str) {
+    pub fn parse_token(&mut self, token: &str) -> Result<()> {
         // todo: i don't know yet which takes up more time - parsing or lookup...
         //       so we always do them both now, and future profiling will show which to do first in the future
         let literal = self.factory.parse(&token);
         let word = self.dictionary.lookup(&token);
         match (literal, word) {
-            (None, None) => panic!("Unknown Word: {}", token),
-            (Some(_), Some(_)) => panic!("Ambiguous Word: {}", token),
+            (None, None) => return Err(ParseError::UnknownWord(token.to_string()).into()),
+            (Some(_), Some(_)) => return Err(ParseError::AmbiguousWord(token.to_string()).into()),
             (Some(obj), None) => self
-                .top_mut()
-                .as_quotation_mut()
+                .top_mut()?
+                .try_as_quotation_mut()?
                 .ops
                 .push(Opcode::Push(obj)),
             (None, Some(entry)) => match &entry.word {
                 Word::Word(_) => {
                     let op = Opcode::call_word(entry.clone());
-                    self.top_mut().as_quotation_mut().ops.push(op);
+                    self.top_mut()?.try_as_quotation_mut()?.ops.push(op);
                 }
-                Word::ParsingWord(obj) => obj.clone().invoke(self),
+                Word::ParsingWord(obj) => obj.clone().invoke(self)?,
             },
         }
+        Ok(())
     }
 
     pub fn add_native_word<S>(
         &mut self,
         name: S,
         stack_effect: impl IntoStackEffect,
-        func: fn(&mut State),
+        func: NativeFunction,
     ) where
         ObjectFactory: StringManager<S>,
     {
@@ -108,7 +113,7 @@ impl State {
         );
     }
 
-    pub fn add_native_parse_word<S>(&mut self, name: S, func: fn(&mut State))
+    pub fn add_native_parse_word<S>(&mut self, name: S, func: NativeFunction)
     where
         ObjectFactory: StringManager<S>,
     {
@@ -122,8 +127,11 @@ impl State {
         );
     }
 
-    pub fn add_closure_parse_word<S>(&mut self, name: S, func: impl Fn(&mut State) + 'static)
-    where
+    pub fn add_closure_parse_word<S>(
+        &mut self,
+        name: S,
+        func: impl Fn(&mut State) -> Result<()> + 'static,
+    ) where
         ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
@@ -217,12 +225,14 @@ impl State {
         self.stack.push(obj);
     }
 
-    pub fn pop(&mut self) -> Object {
-        self.stack.pop().expect("Stack Empty")
+    pub fn pop(&mut self) -> Result<Object> {
+        self.stack.pop().ok_or(StackError::StackUnderflow.into())
     }
 
-    pub fn top_mut(&mut self) -> &mut Object {
-        self.stack.last_mut().expect("Stack Empty")
+    pub fn top_mut(&mut self) -> Result<&mut Object> {
+        self.stack
+            .last_mut()
+            .ok_or(StackError::StackUnderflow.into())
     }
 
     pub fn push_str(&mut self, s: &str) {
@@ -230,20 +240,20 @@ impl State {
         self.push(obj);
     }
 
-    pub fn pop_bool(&mut self) -> Option<bool> {
-        self.pop().try_into_bool()
+    pub fn pop_bool(&mut self) -> Result<bool> {
+        self.pop()?.try_into_bool()
     }
 
-    pub fn pop_i32(&mut self) -> Option<i32> {
-        self.pop().try_into_i32()
+    pub fn pop_i32(&mut self) -> Result<i32> {
+        self.pop()?.try_into_i32()
     }
 
-    pub fn pop_str(&mut self) -> Option<String> {
-        let obj = self.pop();
+    pub fn pop_str(&mut self) -> Result<String> {
+        let obj = self.pop()?;
         let rcs = obj.into();
         match Rc::try_unwrap(rcs) {
-            Ok(s) => Some(s),
-            Err(rcs) => Some((*rcs).clone()),
+            Ok(s) => Ok(s),
+            Err(rcs) => Ok((*rcs).clone()),
         }
     }
 
@@ -254,24 +264,27 @@ impl State {
         ));
     }
 
-    pub fn dup(&mut self) {
-        let a = self.pop();
+    pub fn dup(&mut self) -> Result<()> {
+        let a = self.pop()?;
         self.push(a.clone());
         self.push(a);
+        Ok(())
     }
 
-    pub fn swap(&mut self) {
-        let a = self.pop();
-        let b = self.pop();
+    pub fn swap(&mut self) -> Result<()> {
+        let a = self.pop()?;
+        let b = self.pop()?;
         self.push(a);
         self.push(b);
+        Ok(())
     }
 
-    pub fn over(&mut self) {
-        let b = self.pop();
-        let a = self.pop();
+    pub fn over(&mut self) -> Result<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
         self.push(a.clone());
         self.push(b);
         self.push(a);
+        Ok(())
     }
 }

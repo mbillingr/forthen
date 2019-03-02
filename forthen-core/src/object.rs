@@ -1,10 +1,14 @@
 use std::rc::Rc;
 
 use crate::dictionary::WordId;
+use crate::error::{Result, TypeError};
 //use crate::scope::ScopeDef;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 use crate::vm::Quotation;
+
+pub type NativeFunction = fn(&mut State) -> Result<()>;
+pub type NativeClosure = Rc<dyn Fn(&mut State) -> Result<()>>;
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -14,8 +18,8 @@ pub enum Object {
     True,
     Word(WordId),
     Quotation(Rc<Quotation>, StackEffect),
-    NativeFunction(fn(&mut State), StackEffect),
-    NativeClosure(Rc<dyn Fn(&mut State)>, StackEffect),
+    NativeFunction(NativeFunction, StackEffect),
+    NativeClosure(NativeClosure, StackEffect),
     //CompoundFunction(Rc<Vec<Object>>, StackEffect),
     //ScopedFunction(Rc<Vec<Object>>, StackEffect, ScopeDef),
     List(Rc<Vec<Object>>),
@@ -57,45 +61,45 @@ impl std::cmp::PartialEq for Object {
 }
 
 impl std::ops::Add for Object {
-    type Output = Object;
-    fn add(self, other: Object) -> Object {
+    type Output = Result<Object>;
+    fn add(self, other: Object) -> Self::Output {
         use Object::*;
         match (self, other) {
-            (I32(a), I32(b)) => I32(a + b),
-            _ => panic!("Type Error"),
+            (I32(a), I32(b)) => Ok(I32(a + b)),
+            (a, b) => Err(TypeError::General(format!("Cannot add {:?} + {:?}", a, b)).into()),
         }
     }
 }
 
 impl std::ops::Sub for Object {
-    type Output = Object;
-    fn sub(self, other: Object) -> Object {
+    type Output = Result<Object>;
+    fn sub(self, other: Object) -> Self::Output {
         use Object::*;
         match (self, other) {
-            (I32(a), I32(b)) => I32(a - b),
-            _ => panic!("Type Error"),
+            (I32(a), I32(b)) => Ok(I32(a - b)),
+            (a, b) => Err(TypeError::General(format!("Cannot subtract {:?} - {:?}", a, b)).into()),
         }
     }
 }
 
 impl std::ops::Mul for Object {
-    type Output = Object;
-    fn mul(self, other: Object) -> Object {
+    type Output = Result<Object>;
+    fn mul(self, other: Object) -> Self::Output {
         use Object::*;
         match (self, other) {
-            (I32(a), I32(b)) => I32(a * b),
-            _ => panic!("Type Error"),
+            (I32(a), I32(b)) => Ok(I32(a * b)),
+            (a, b) => Err(TypeError::General(format!("Cannot multiply {:?} * {:?}", a, b)).into()),
         }
     }
 }
 
 impl std::ops::Div for Object {
-    type Output = Object;
-    fn div(self, other: Object) -> Object {
+    type Output = Result<Object>;
+    fn div(self, other: Object) -> Self::Output {
         use Object::*;
         match (self, other) {
-            (I32(a), I32(b)) => I32(a / b),
-            _ => panic!("Type Error"),
+            (I32(a), I32(b)) => Ok(I32(a / b)),
+            (a, b) => Err(TypeError::General(format!("Cannot divide {:?} / {:?}", a, b)).into()),
         }
     }
 }
@@ -132,98 +136,116 @@ impl From<i32> for Object {
 
 impl From<Object> for Rc<String> {
     fn from(obj: Object) -> Self {
-        match obj {
-            Object::String(rcs) => rcs,
-            _ => panic!("Type Error"),
-        }
+        obj.try_into_rc_string().unwrap()
     }
 }
 
 impl From<Object> for i32 {
     fn from(obj: Object) -> Self {
-        match obj {
-            Object::I32(i) => i,
-            _ => panic!("Type Error"),
-        }
+        obj.try_into_i32().unwrap()
     }
 }
 
 impl Object {
-    pub fn get_stack_effect(&self) -> StackEffect {
+    pub fn get_stack_effect(&self) -> Result<StackEffect> {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
-            Object::Quotation(_, se) => se.clone(),
-            Object::NativeFunction(_, se) => se.clone(),
-            Object::NativeClosure(_, se) => se.clone(),
-            _ => panic!("Type Error"),
+            Object::Quotation(_, se)
+            | Object::NativeFunction(_, se)
+            | Object::NativeClosure(_, se) => Ok(se.clone()),
+            _ => Err(
+                TypeError::ExpectationError(format!("{:?}", self), "callable".to_string()).into(),
+            ),
         }
     }
 
     /// if the object is callable, call it otherwise push itself on stack.
-    pub fn invoke(&self, state: &mut State) {
+    pub fn invoke(&self, state: &mut State) -> Result<()> {
         match self {
             Object::Word(id) => id.word.inner().invoke(state),
             Object::Quotation(quot, _) => quot.run(state),
             Object::NativeFunction(fun, _) => fun(state),
             Object::NativeClosure(fun, _) => fun(state),
-            _ => panic!("Type Error"),
+            _ => Err(
+                TypeError::ExpectationError(format!("{:?}", self), "callable".to_string()).into(),
+            ),
         }
     }
 
     /// allows to mutate a List object if there is no other reference to it
-    pub fn as_vec_mut(&mut self) -> &mut Vec<Object> {
+    pub fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
         match self {
-            Object::List(vec) => Rc::get_mut(vec).expect("Unable to mutate list"),
-            _ => panic!("Type Error"),
+            Object::List(vec) => Rc::get_mut(vec).ok_or(TypeError::MutationError.into()),
+            _ => Err(TypeError::ExpectationError(
+                format!("{:?}", self),
+                "mutable list".to_string(),
+            )
+            .into()),
         }
     }
 
     /// view the object as a slice
     ///
     /// Supported variants: `List`
-    pub fn as_slice(&self) -> &[Object] {
+    pub fn as_slice(&self) -> Result<&[Object]> {
         match self {
-            Object::List(vec) => &vec,
-            _ => panic!("Type Error"),
+            Object::List(vec) => Ok(&vec),
+            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "list".to_string()).into()),
         }
     }
 
     /// convert into reference counted `Vec`
-    pub fn into_rc_vec(self) -> Rc<Vec<Object>> {
+    pub fn into_rc_vec(self) -> Result<Rc<Vec<Object>>> {
         match self {
-            Object::List(vec) => vec,
-            _ => panic!("Type Error"),
+            Object::List(vec) => Ok(vec),
+            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "list".to_string()).into()),
         }
     }
 
     /// try to convert into `i32`.
-    pub fn try_into_bool(self) -> Option<bool> {
+    pub fn try_into_bool(self) -> Result<bool> {
         match self {
-            Object::True => Some(true),
-            Object::False => Some(false),
-            _ => None,
+            Object::True => Ok(true),
+            Object::False => Ok(false),
+            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "bool".to_string()).into()),
         }
     }
 
     /// try to convert into `i32`.
-    pub fn try_into_i32(self) -> Option<i32> {
+    pub fn try_into_i32(self) -> Result<i32> {
         match self {
-            Object::I32(i) => Some(i),
-            _ => None,
+            Object::I32(i) => Ok(i),
+            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "i32".to_string()).into()),
         }
     }
 
-    pub fn into_rc_quotation(self) -> Rc<Quotation> {
+    /// try to convert into `i32`.
+    pub fn try_into_rc_string(self) -> Result<Rc<String>> {
         match self {
-            Object::Quotation(vec, _) => vec,
-            _ => panic!("Type Error"),
+            Object::String(rcs) => Ok(rcs),
+            _ => Err(
+                TypeError::ExpectationError(format!("{:?}", self), "RcString".to_string()).into(),
+            ),
         }
     }
 
-    pub fn as_quotation_mut(&mut self) -> &mut Quotation {
+    pub fn try_into_rc_quotation(self) -> Result<Rc<Quotation>> {
         match self {
-            Object::Quotation(vec, _) => Rc::get_mut(vec).expect("Unable to mutate list"),
-            _ => panic!("Type Error"),
+            Object::Quotation(vec, _) => Ok(vec),
+            _ => Err(
+                TypeError::ExpectationError(format!("{:?}", self), "quotation".to_string()).into(),
+            ),
+        }
+    }
+
+    pub fn try_as_quotation_mut(&mut self) -> Result<&mut Quotation> {
+        match self {
+            Object::Quotation(vec, _) => Rc::get_mut(vec).ok_or(TypeError::MutationError.into()),
+            _ => Err(TypeError::ExpectationError(
+                format!("{:?}", self),
+                "mutable quotation".to_string(),
+            )
+            .into()),
         }
     }
 }

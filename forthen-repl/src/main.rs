@@ -1,22 +1,22 @@
 use forthen_core::State;
-use forthen_std::{tier0, tier1, ops};
+use forthen_std::{ops, tier0, tier1};
 
 use rustyline::Editor;
 
 fn main() {
     let state = &mut State::new();
-    tier0(state);
-    tier1(state);
+    tier0(state).unwrap();
+    tier1(state).unwrap();
 
-    state.run("3 5 \"hello forth!\" .s");
-    state.run("3 5 \"hello forth!\" .s");
+    state.run("3 5 \"hello forth!\" .s").unwrap();
+    state.run("3 5 \"hello forth!\" .s").unwrap();
 
-    state.run(": the-answer 42 ;");
-    state.run("the-answer .s");
+    state.run(": the-answer 42 ;").unwrap();
+    state.run("the-answer .s").unwrap();
 
-    state.run(": more-answers the-answer the-answer ;");
-    state.run(": 2dup over over ;");
-    state.run(": stackfun swap 2dup swap ;");
+    state.run(": more-answers the-answer the-answer ;").unwrap();
+    state.run(": 2dup over over ;").unwrap();
+    state.run(": stackfun swap 2dup swap ;").unwrap();
 
     println!("{:#?}", state);
 
@@ -29,7 +29,10 @@ fn main() {
     state.add_native_word("std:tier0", "( -- )", |state| tier0(state));
     state.add_native_word("std:tier1", "( -- )", |state| tier1(state));
     state.add_native_word("std:ops", "( -- )", |state| ops(state));
-    state.add_native_word("words", "( -- )", |state| state.print_dictionary());
+    state.add_native_word("words", "( -- )", |state| {
+        state.print_dictionary();
+        Ok(())
+    });
 
     let mut rl = Editor::<()>::new();
 
@@ -54,7 +57,10 @@ fn main() {
         match rl.readline(">> ") {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                state.run(&line)
+                match state.run(&line) {
+                    Ok(()) => {}
+                    Err(e) => println!("Error: {}", e),
+                }
             }
             _ => {
                 println!("Input Error");

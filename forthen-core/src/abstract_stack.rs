@@ -1,3 +1,4 @@
+use crate::error::StackEffectError;
 use crate::stack_effect::{EffectNode, StackEffect};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -5,30 +6,9 @@ use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::mem::replace;
 use std::rc::Rc;
+use std::result::Result;
 
 pub type ItemRef = RefHash<StackItem>;
-
-type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    Incompatible,
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use std::error::Error;
-        write!(f, "{}", self.description())
-    }
-}
-
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        match self {
-            Error::Incompatible => "attempted to combine incompatible stack effects",
-        }
-    }
-}
 
 pub enum StackItem {
     Row(String),
@@ -295,7 +275,11 @@ impl Substitutions {
             .unwrap_or(Sequence::single(item))
     }
 
-    fn add_sequence(&mut self, a: ItemRef, b: Sequence) -> Result<Vec<(ItemRef, Sequence)>> {
+    fn add_sequence(
+        &mut self,
+        a: ItemRef,
+        b: Sequence,
+    ) -> std::result::Result<Vec<(ItemRef, Sequence)>, StackEffectError> {
         let mut items = vec![];
 
         if let Some(item) = self.subs.get(&a) {
@@ -315,7 +299,7 @@ impl Substitutions {
                 let a = a.into_item();
 
                 if b.contains(&a) {
-                    return Err(Error::Incompatible);
+                    return Err(StackEffectError::Incompatible);
                 }
 
                 for other_b in self.subs.values_mut() {
@@ -352,7 +336,7 @@ impl AbstractStack {
         }
     }
 
-    pub fn pop<T: Into<Sequence>>(&mut self, x: T) -> Result<Sequence> {
+    pub fn pop<T: Into<Sequence>>(&mut self, x: T) -> Result<Sequence, StackEffectError> {
         self.pop_sequence(x.into())
     }
 
@@ -360,7 +344,7 @@ impl AbstractStack {
         self.push_sequence(x.into())
     }
 
-    fn pop_sequence(&mut self, mut targets: Sequence) -> Result<Sequence> {
+    fn pop_sequence(&mut self, mut targets: Sequence) -> Result<Sequence, StackEffectError> {
         let mut result = Sequence::new();
         while let Some(target) = targets.pop() {
             result.extend(self.pop_item(target)?);
@@ -368,7 +352,7 @@ impl AbstractStack {
         Ok(result)
     }
 
-    fn pop_item(&mut self, target: ItemRef) -> Result<Sequence> {
+    fn pop_item(&mut self, target: ItemRef) -> Result<Sequence, StackEffectError> {
         if let StackItem::Row(_) = *target {
             let x = replace(&mut self.outputs, Sequence::new());
             self.substitute(&target, &x)?;
@@ -423,7 +407,7 @@ impl AbstractStack {
         self.inputs.insert(1, item);
     }
 
-    fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<()> {
+    fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<(), StackEffectError> {
         for (a, b) in self.subs.add_sequence(a.clone(), b.clone())? {
             self.inputs.substitute(&a, &b);
             self.outputs.substitute(&a, &b);
@@ -431,7 +415,7 @@ impl AbstractStack {
         Ok(())
     }
 
-    pub fn apply_effect(&mut self, effect: &StackEffect) -> Result<()> {
+    pub fn apply_effect(&mut self, effect: &StackEffect) -> Result<(), StackEffectError> {
         let mut names = HashMap::new();
 
         for i in effect.inputs.iter().rev() {
@@ -459,11 +443,13 @@ fn make_item(effect: &EffectNode, names: &mut HashMap<String, Sequence>) -> Sequ
             .or_insert_with(|| Sequence::single(StackItem::row(name)))
             .clone(),
         EffectNode::Quotation(name, se) => {
-            let inputs: Vec<_> = se.inputs
+            let inputs: Vec<_> = se
+                .inputs
                 .iter()
                 .map(|node| make_item(node, names).into_item())
                 .collect();
-            let outputs: Vec<_> = se.outputs
+            let outputs: Vec<_> = se
+                .outputs
                 .iter()
                 .map(|node| make_item(node, names).into_item())
                 .collect();
@@ -671,7 +657,7 @@ mod tests {
                     &[c.clone(), StackItem::item("k")],
                 ))
                 .err(),
-            Some(Error::Incompatible)
+            Some(StackEffectError::Incompatible)
         )
     }
 }

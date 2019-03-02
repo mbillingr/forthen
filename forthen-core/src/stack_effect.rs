@@ -1,25 +1,30 @@
 use crate::abstract_stack::{AbstractStack, Sequence, StackItem};
+use crate::error::{ParseError, Result};
 use crate::parsing::tokenize;
 use std::collections::{HashMap, HashSet};
 
-pub trait IntoStackEffect {
-    fn into_stack_effect(self) -> StackEffect;
+pub trait IntoStackEffect: Sized {
+    fn try_into_stack_effect(self) -> Result<StackEffect>;
+
+    fn into_stack_effect(self) -> StackEffect {
+        self.try_into_stack_effect().unwrap()
+    }
 }
 
 impl IntoStackEffect for StackEffect {
-    fn into_stack_effect(self) -> StackEffect {
-        self
+    fn try_into_stack_effect(self) -> Result<StackEffect> {
+        Ok(self)
     }
 }
 
 impl IntoStackEffect for &str {
-    fn into_stack_effect(self) -> StackEffect {
+    fn try_into_stack_effect(self) -> Result<StackEffect> {
         StackEffect::parse(self)
     }
 }
 
 impl IntoStackEffect for String {
-    fn into_stack_effect(self) -> StackEffect {
+    fn try_into_stack_effect(self) -> Result<StackEffect> {
         StackEffect::parse(&self)
     }
 }
@@ -71,25 +76,25 @@ impl StackEffect {
         }
     }
 
-    pub fn parse(input: &str) -> Self {
+    pub fn parse(input: &str) -> Result<Self> {
         parse_effect(&mut tokenize(input).peekable())
     }
 
-    pub fn chain(&self, rhs: &Self) -> Self {
+    pub fn chain(&self, rhs: &Self) -> Result<Self> {
         let (a, b) = rename_effects(self, rhs);
 
         //println!("({}) ({})", a, b);
 
         let mut astack = AbstractStack::new();
-        astack.apply_effect(&a).unwrap();
-        astack.apply_effect(&b).unwrap();
+        astack.apply_effect(&a)?;
+        astack.apply_effect(&b)?;
 
         //println!("    ->  {:?}", astack);
 
-        StackEffect {
+        Ok(StackEffect {
             inputs: astack.inputs.into(),
             outputs: astack.outputs.into(),
-        }
+        })
     }
 
     fn all_names(&self) -> HashSet<&str> {
@@ -131,8 +136,16 @@ impl StackEffect {
 
     fn prefixed(self, prefix: &str) -> Self {
         StackEffect {
-            inputs: self.inputs.into_iter().map(| i| i.prefixed(prefix)).collect(),
-            outputs: self.outputs.into_iter().map(|o| o.prefixed(prefix)).collect(),
+            inputs: self
+                .inputs
+                .into_iter()
+                .map(|i| i.prefixed(prefix))
+                .collect(),
+            outputs: self
+                .outputs
+                .into_iter()
+                .map(|o| o.prefixed(prefix))
+                .collect(),
         }
     }
 }
@@ -246,18 +259,16 @@ impl EffectNode {
 
     pub fn name(&self) -> &str {
         match self {
-            EffectNode::Row(name) | EffectNode::Item(name) | EffectNode::Quotation(name, _) => {
-                name
-            }
+            EffectNode::Row(name) | EffectNode::Item(name) | EffectNode::Quotation(name, _) => name,
         }
     }
 
     fn is_same(&self, other: &Self) -> bool {
         use EffectNode::*;
         match (self, other) {
-            (Row(na), Row(nb))
-            | (Item(na), Item(nb))
-            | (Quotation(na, _), Quotation(nb, _)) => na == nb,
+            (Row(na), Row(nb)) | (Item(na), Item(nb)) | (Quotation(na, _), Quotation(nb, _)) => {
+                na == nb
+            }
             _ => false,
         }
     }
@@ -282,10 +293,9 @@ impl EffectNode {
         match self {
             EffectNode::Row(name) => EffectNode::Row(mapping[name.as_str()].clone()),
             EffectNode::Item(name) => EffectNode::Item(mapping[name.as_str()].clone()),
-            EffectNode::Quotation(name, se) => EffectNode::Quotation(
-                mapping[name.as_str()].clone(),
-                se.renamed(mapping)
-            ),
+            EffectNode::Quotation(name, se) => {
+                EffectNode::Quotation(mapping[name.as_str()].clone(), se.renamed(mapping))
+            }
         }
     }
 
@@ -293,17 +303,16 @@ impl EffectNode {
         match self {
             EffectNode::Row(name) => EffectNode::Row(format!("{}{}", prefix, name)),
             EffectNode::Item(name) => EffectNode::Item(format!("{}{}", prefix, name)),
-            EffectNode::Quotation(name, se) => EffectNode::Quotation(
-                format!("{}{}", prefix, name),
-                se.prefixed(prefix)
-            ),
+            EffectNode::Quotation(name, se) => {
+                EffectNode::Quotation(format!("{}{}", prefix, name), se.prefixed(prefix))
+            }
         }
     }
 
     fn simplified(&self) -> Self {
         match self {
             EffectNode::Row(_) | EffectNode::Item(_) => self.clone(),
-            EffectNode::Quotation(name, se) => EffectNode::Quotation(name.clone(), se.simplified())
+            EffectNode::Quotation(name, se) => EffectNode::Quotation(name.clone(), se.simplified()),
         }
     }
 }
@@ -320,7 +329,7 @@ impl From<Sequence> for Vec<EffectNode> {
                     StackEffect {
                         inputs: a.clone().into_inner().into(),
                         outputs: b.clone().into_inner().into(),
-                   }
+                    },
                 ),
             })
             .collect()
@@ -344,17 +353,17 @@ impl std::fmt::Debug for EffectNode {
         match self.simplified() {
             EffectNode::Row(name) => write!(f, "..{}", name),
             EffectNode::Item(name) => write!(f, "{}", name),
-            EffectNode::Quotation(name, se) => {
-                write!(f, "{}({})", name, se)
-            }
+            EffectNode::Quotation(name, se) => write!(f, "{}({})", name, se),
         }
     }
 }
 
-fn parse_effect<'a>(input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>) -> StackEffect {
+fn parse_effect<'a>(
+    input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<StackEffect> {
     assert_eq!(input.next(), Some("("));
-    let mut inputs = parse_sequence(input, "--");
-    let mut outputs = parse_sequence(input, ")");
+    let mut inputs = parse_sequence(input, "--")?;
+    let mut outputs = parse_sequence(input, ")")?;
 
     match (inputs.get(0), outputs.get(0)) {
         (Some(EffectNode::Row(_)), _) => {}
@@ -370,29 +379,29 @@ fn parse_effect<'a>(input: &mut std::iter::Peekable<impl Iterator<Item = &'a str
         }
     }
 
-    StackEffect { inputs, outputs }
+    Ok(StackEffect { inputs, outputs })
 }
 
 fn parse_quotation<'a>(
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     name: &str,
-) -> EffectNode {
-    let se = parse_effect(input);
-    EffectNode::Quotation(name.to_string(), se)
+) -> Result<EffectNode> {
+    let se = parse_effect(input)?;
+    Ok(EffectNode::Quotation(name.to_string(), se))
 }
 
 fn parse_sequence<'a>(
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     terminator: &str,
-) -> Vec<EffectNode> {
+) -> Result<Vec<EffectNode>> {
     let mut sequence = vec![];
     while let Some(token) = input.next() {
         if token == terminator {
-            return sequence;
+            return Ok(sequence);
         }
 
         let element = if let Some(&"(") = input.peek() {
-            parse_quotation(input, token)
+            parse_quotation(input, token)?
         } else if token.starts_with("..") {
             EffectNode::Row(token[2..].to_string())
         } else {
@@ -401,7 +410,8 @@ fn parse_sequence<'a>(
 
         sequence.push(element);
     }
-    panic!("Unexpected end of input")
+
+    Err(ParseError::EndOfInput.into())
 }
 
 #[cfg(test)]
@@ -505,60 +515,100 @@ mod tests {
 
     #[test]
     fn chain_effects() {
-        let new = StackEffect::parse("( -- x)");
-        let swap = StackEffect::parse("(a b -- b a)");
-        let dup = StackEffect::parse("(var -- var var)");
-        let drop = StackEffect::parse("(x -- )");
-        let put = StackEffect::parse("(a b -- c a b)");
+        let new = "( -- x)".into_stack_effect();
+        let swap = "(a b -- b a)".into_stack_effect();
+        let dup = "(var -- var var)".into_stack_effect();
+        let drop = "(x -- )".into_stack_effect();
+        let put = "(a b -- c a b)".into_stack_effect();
 
-        let drop3 = StackEffect::parse("(a b c -- )");
+        let drop3 = "(a b c -- )".into_stack_effect();
 
-        assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
-        assert_eq!(swap.chain(&swap), StackEffect::parse("( -- )"));
-        assert_eq!(dup.chain(&dup), StackEffect::parse("(x -- x x x)"));
-        assert_eq!(drop.chain(&drop), StackEffect::parse("(b a -- )"));
-        assert_eq!(put.chain(&put), StackEffect::parse("(a b -- c d a b)"));
-
-        assert_eq!(dup.chain(&drop), StackEffect::parse("( -- )"));
-
-        assert_eq!(swap.chain(&put), StackEffect::parse("(a b -- c b a)"));
-        assert_eq!(put.chain(&swap), StackEffect::parse("(a b -- c b a)"));
-
-        assert_eq!(dup.chain(&drop).chain(&drop), StackEffect::parse("(x --)"));
-
-        assert_eq!(put, StackEffect::parse("(a b -- c a b)"));
-        assert_eq!(put.chain(&swap), StackEffect::parse("(a b -- c b a)"));
+        assert_eq!(new.chain(&new).unwrap(), "( -- x y)".into_stack_effect());
+        assert_eq!(swap.chain(&swap).unwrap(), "( -- )".into_stack_effect());
+        assert_eq!(dup.chain(&dup).unwrap(), "(x -- x x x)".into_stack_effect());
+        assert_eq!(drop.chain(&drop).unwrap(), "(b a -- )".into_stack_effect());
         assert_eq!(
-            put.chain(&swap).chain(&drop),
-            StackEffect::parse("(a b -- c b)")
+            put.chain(&put).unwrap(),
+            "(a b -- c d a b)".into_stack_effect()
+        );
+
+        assert_eq!(dup.chain(&drop).unwrap(), "( -- )".into_stack_effect());
+
+        assert_eq!(
+            swap.chain(&put).unwrap(),
+            "(a b -- c b a)".into_stack_effect()
         );
         assert_eq!(
-            put.chain(&swap).chain(&drop).chain(&dup),
-            StackEffect::parse("(a b -- c b b)")
+            put.chain(&swap).unwrap(),
+            "(a b -- c b a)".into_stack_effect()
+        );
+
+        assert_eq!(
+            dup.chain(&drop).unwrap().chain(&drop).unwrap(),
+            "(x --)".into_stack_effect()
+        );
+
+        assert_eq!(put, "(a b -- c a b)".into_stack_effect());
+        assert_eq!(
+            put.chain(&swap).unwrap(),
+            "(a b -- c b a)".into_stack_effect()
         );
         assert_eq!(
-            put.chain(&swap).chain(&drop).chain(&dup).chain(&new),
-            StackEffect::parse("(a b -- c b b d)")
+            put.chain(&swap).unwrap().chain(&drop).unwrap(),
+            "(a b -- c b)".into_stack_effect()
         );
         assert_eq!(
             put.chain(&swap)
+                .unwrap()
                 .chain(&drop)
+                .unwrap()
                 .chain(&dup)
+                .unwrap(),
+            "(a b -- c b b)".into_stack_effect()
+        );
+        assert_eq!(
+            put.chain(&swap)
+                .unwrap()
+                .chain(&drop)
+                .unwrap()
+                .chain(&dup)
+                .unwrap()
                 .chain(&new)
-                .chain(&swap),
-            StackEffect::parse("(a b -- c b d b)")
+                .unwrap(),
+            "(a b -- c b b d)".into_stack_effect()
+        );
+        assert_eq!(
+            put.chain(&swap)
+                .unwrap()
+                .chain(&drop)
+                .unwrap()
+                .chain(&dup)
+                .unwrap()
+                .chain(&new)
+                .unwrap()
+                .chain(&swap)
+                .unwrap(),
+            "(a b -- c b d b)".into_stack_effect()
         );
 
-        assert_eq!(drop3.chain(&swap), StackEffect::parse("(a b c d e -- b a)"));
-        assert_eq!(swap.chain(&drop3), StackEffect::parse("(c a b -- )"));
+        assert_eq!(
+            drop3.chain(&swap).unwrap(),
+            "(a b c d e -- b a)".into_stack_effect()
+        );
+        assert_eq!(
+            swap.chain(&drop3).unwrap(),
+            "(c a b -- )".into_stack_effect()
+        );
     }
 
     #[test]
     fn regression_input_mapping() {
         let sfx = StackEffect::new_pushing("z")
             .chain(&StackEffect::new_pushing("z"))
-            .chain(&StackEffect::parse("(x c b a -- x)"));
-        assert_eq!(sfx, StackEffect::parse("(x c -- x)"));
+            .unwrap()
+            .chain(&"(x c b a -- x)".into_stack_effect())
+            .unwrap();
+        assert_eq!(sfx, "(x c -- x)".into_stack_effect());
     }
 
     #[test]
@@ -577,31 +627,36 @@ mod tests {
         //                     = (f -- x y f) (..a f(..a -- ..b) -- ..b)
         //                                  = (..a f(..a x y -- ..b) -- ..b)
 
-        let new = StackEffect::parse("( -- x)");
-        let rot = StackEffect::parse("(a b c -- b c a)");
-        let call = StackEffect::parse("(..a func(..a -- ..b) -- ..b)");
+        let new = "( -- x)".into_stack_effect();
+        let rot = "(a b c -- b c a)".into_stack_effect();
+        let call = "(..a func(..a -- ..b) -- ..b)".into_stack_effect();
 
-        assert_eq!(new.chain(&new), StackEffect::parse("( -- x y)"));
+        assert_eq!(new.chain(&new).unwrap(), "( -- x y)".into_stack_effect());
         assert_eq!(
-            new.chain(&new).chain(&rot),
-            StackEffect::parse("(f -- x y f)")
+            new.chain(&new).unwrap().chain(&rot).unwrap(),
+            "(f -- x y f)".into_stack_effect()
         );
         assert_eq!(
-            new.chain(&new).chain(&rot).chain(&call),
-            StackEffect::parse("(..a f(..a x y -- ..b) -- ..b)")
+            new.chain(&new)
+                .unwrap()
+                .chain(&rot)
+                .unwrap()
+                .chain(&call)
+                .unwrap(),
+            "(..a f(..a x y -- ..b) -- ..b)".into_stack_effect()
         );
     }
 
     #[test]
     fn if_effect() {
-        let sfx = StackEffect::parse("(..a ? yes(..a -- ..b) no(..a -- ..b) -- ..b)");
-        let yes = StackEffect::parse("(..d -- ..d f(..c -- ..c x))");
-        let no = StackEffect::parse("(..d -- ..d f(..c -- ..c x))");
+        let sfx = "(..a ? yes(..a -- ..b) no(..a -- ..b) -- ..b)".into_stack_effect();
+        let yes = "(..d -- ..d f(..c -- ..c x))".into_stack_effect();
+        let no = "(..d -- ..d f(..c -- ..c x))".into_stack_effect();
 
-        println!("{}", yes.chain(&no).chain(&sfx));
+        println!("{}", yes.chain(&no).unwrap().chain(&sfx).unwrap());
         assert_eq!(
-            yes.chain(&no).chain(&sfx),
-            StackEffect::parse("(cond -- value)")
+            yes.chain(&no).unwrap().chain(&sfx).unwrap(),
+            "(cond -- value)".into_stack_effect()
         );
     }
 }
