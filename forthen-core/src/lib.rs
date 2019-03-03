@@ -12,7 +12,7 @@ mod testing;
 mod vm;
 
 pub use error::{Error, Result};
-pub use object::Object;
+pub use object::{DynamicObject, Object};
 pub use scope::CompilerScope;
 pub use stack_effect::StackEffect;
 pub use state::State;

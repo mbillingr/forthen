@@ -228,8 +228,9 @@ impl State {
         self.stack.clear();
     }
 
-    pub fn push(&mut self, obj: Object) {
+    pub fn push(&mut self, obj: Object) -> Result<()> {
         self.stack.push(obj);
+        Ok(())
     }
 
     pub fn pop(&mut self) -> Result<Object> {

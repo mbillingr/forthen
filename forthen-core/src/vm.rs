@@ -57,7 +57,7 @@ impl Quotation {
         'outer: loop {
             for op in &self.ops {
                 match op {
-                    Push(obj) => state.push(obj.clone()),
+                    Push(obj) => state.push(obj.clone())?,
                     Call(obj) => obj.invoke(state)?,
                     TailRecurse => continue 'outer,
                 }

@@ -1,6 +1,5 @@
 use forthen_core::State;
-use forthen_std::{ops, tier0, tier1};
-
+use forthen_std::{complex, ops, tier0, tier1};
 use rustyline::Editor;
 
 fn main() {
@@ -29,6 +28,7 @@ fn main() {
     state.add_native_word("std:tier0", "( -- )", |state| tier0(state));
     state.add_native_word("std:tier1", "( -- )", |state| tier1(state));
     state.add_native_word("std:ops", "( -- )", |state| ops(state));
+    state.add_native_word("std:complex", "( -- )", |state| complex(state));
     state.add_native_word("words", "( -- )", |state| {
         state.print_dictionary();
         Ok(())

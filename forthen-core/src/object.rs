@@ -1,5 +1,5 @@
 use std::rc::Rc;
-
+use std::any::Any;
 use crate::dictionary::WordId;
 use crate::error::{Result, TypeError};
 //use crate::scope::ScopeDef;
@@ -9,6 +9,12 @@ use crate::vm::Quotation;
 
 pub type NativeFunction = fn(&mut State) -> Result<()>;
 pub type NativeClosure = Rc<dyn Fn(&mut State) -> Result<()>>;
+
+pub trait DynamicObject {
+    fn as_any(&self) -> &dyn Any;
+    fn repr(&self) -> String;
+    fn eq(&self, other: &dyn DynamicObject) -> bool;
+}
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -25,6 +31,8 @@ pub enum Object {
     List(Rc<Vec<Object>>),
     String(Rc<String>),
     I32(i32),
+
+    Dynamic(Rc<DynamicObject>),
 }
 
 impl std::fmt::Debug for Object {
@@ -40,6 +48,7 @@ impl std::fmt::Debug for Object {
             Object::List(list) => write!(f, "{:?}", list),
             Object::String(rcs) => write!(f, "{:?}", rcs),
             Object::I32(i) => write!(f, "{:?}", i),
+            Object::Dynamic(dynobj) => write!(f, "{}", dynobj.repr()),
         }
     }
 }
@@ -55,6 +64,7 @@ impl std::cmp::PartialEq for Object {
             (List(a), List(b)) => a == b,
             (String(a), String(b)) => a == b,
             (I32(a), I32(b)) => a == b,
+            (Dynamic(a), Dynamic(b)) => DynamicObject::eq(&**a, &**b),
             _ => false,
         }
     }
