@@ -243,9 +243,9 @@ impl State {
             .ok_or(StackError::StackUnderflow.into())
     }
 
-    pub fn push_str(&mut self, s: &str) {
+    pub fn push_str(&mut self, s: &str) -> Result<()> {
         let obj = self.factory.get_string(s).into();
-        self.push(obj);
+        self.push(obj)
     }
 
     pub fn pop_bool(&mut self) -> Result<bool> {
@@ -269,30 +269,27 @@ impl State {
         self.push(Object::Quotation(
             Rc::new(Quotation::new()),
             StackEffect::new(),
-        ));
+        )).unwrap();
     }
 
     pub fn dup(&mut self) -> Result<()> {
         let a = self.pop()?;
-        self.push(a.clone());
-        self.push(a);
-        Ok(())
+        self.push(a.clone())?;
+        self.push(a)
     }
 
     pub fn swap(&mut self) -> Result<()> {
         let a = self.pop()?;
         let b = self.pop()?;
-        self.push(a);
-        self.push(b);
-        Ok(())
+        self.push(a)?;
+        self.push(b)
     }
 
     pub fn over(&mut self) -> Result<()> {
         let b = self.pop()?;
         let a = self.pop()?;
-        self.push(a.clone());
-        self.push(b);
-        self.push(a);
-        Ok(())
+        self.push(a.clone())?;
+        self.push(b)?;
+        self.push(a)
     }
 }

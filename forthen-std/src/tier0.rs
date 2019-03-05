@@ -100,7 +100,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         let addr = state.pop_i32()? as usize;
         let addr = state.frames.len() - addr - 1;
         let x = state.frames[addr].clone();
-        state.push(x);
+        state.push(x)?;
         Ok(())
     });
 
@@ -228,9 +228,9 @@ mod tests {
             let a = state.pop()?;
             let b = state.pop()?;
             let c = state.pop()?;
-            state.push(a);
-            state.push(c);
-            state.push(b);
+            state.push(a)?;
+            state.push(c)?;
+            state.push(b)?;
             Ok(())
         });
         state.add_native_word(".s", "( -- )", |state| {
@@ -312,14 +312,8 @@ mod tests {
         let state = &mut State::new();
         tier0(state).unwrap();
 
-        state.add_native_word("true", "( -- b)", |state| {
-            state.push(Object::True);
-            Ok(())
-        });
-        state.add_native_word("false", "( -- b)", |state| {
-            state.push(Object::False);
-            Ok(())
-        });
+        state.add_native_word("true", "( -- b)", |state| state.push(Object::True));
+        state.add_native_word("false", "( -- b)", |state| state.push(Object::False));
 
         state.run(":: dup   set x get x get x ;").unwrap();
         state.run(":: swap   set x set y get x get y ;").unwrap();
