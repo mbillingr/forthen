@@ -22,7 +22,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         if let Err(e) = state.parse_until(";") {
             state.pop().unwrap();
-            return Err(e)
+            return Err(e);
         }
 
         let obj = state.pop()?;
@@ -39,7 +39,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         if let Err(e) = state.parse_until(";") {
             state.pop().unwrap();
-            return Err(e)
+            return Err(e);
         }
 
         let quot = state.pop()?.try_into_rc_quotation()?;
@@ -58,7 +58,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         if let Err(e) = state.parse_until("]") {
             state.pop().unwrap();
-            return Err(e)
+            return Err(e);
         }
         let quot = state.pop()?.try_into_rc_quotation()?;
 
@@ -149,7 +149,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         if let Err(e) = state.parse_until(";") {
             state.pop().unwrap();
             state.scopes.pop().unwrap();
-            return Err(e)
+            return Err(e);
         }
 
         let scope = state.scopes.pop().unwrap();

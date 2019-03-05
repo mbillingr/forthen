@@ -1,6 +1,6 @@
 use crate::dictionary::WordId;
 use crate::error::Result;
-use crate::object::Object;
+use crate::objects::Object;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 

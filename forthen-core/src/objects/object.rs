@@ -1,20 +1,12 @@
-use std::rc::Rc;
-use std::any::Any;
 use crate::dictionary::WordId;
 use crate::error::{Result, TypeError};
+use std::rc::Rc;
 //use crate::scope::ScopeDef;
+use super::callable::{NativeClosure, NativeFunction};
+use super::prelude::*;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 use crate::vm::Quotation;
-
-pub type NativeFunction = fn(&mut State) -> Result<()>;
-pub type NativeClosure = Rc<dyn Fn(&mut State) -> Result<()>>;
-
-pub trait DynamicObject {
-    fn as_any(&self) -> &dyn Any;
-    fn repr(&self) -> String;
-    fn eq(&self, other: &dyn DynamicObject) -> bool;
-}
 
 /// Dynamically typed value
 #[derive(Clone)]

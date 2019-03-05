@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::object::Object;
+use crate::objects::Object;
 use crate::rcstring::RcString;
 
 #[derive(Debug)]

@@ -1,8 +1,8 @@
 mod abstract_stack;
 mod dictionary;
 pub mod error;
-mod object;
 mod object_factory;
+pub mod objects;
 mod parsing;
 mod rcstring;
 mod scope;
@@ -12,7 +12,7 @@ mod testing;
 mod vm;
 
 pub use error::{Error, Result};
-pub use object::{DynamicObject, Object};
+pub use objects::prelude::*;
 pub use scope::CompilerScope;
 pub use stack_effect::StackEffect;
 pub use state::State;

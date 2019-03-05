@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::Object;
+use crate::objects::Object;
 use crate::State;
 
 impl State {

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use crate::object::Object;
+use crate::objects::Object;
 use crate::rcstring::RcString;
 
 /// will be responsible for things like string and small integer reuse
