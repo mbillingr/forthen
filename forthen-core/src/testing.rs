@@ -21,4 +21,15 @@ impl State {
             assert_eq!(s, e)
         }
     }
+
+    pub fn assert_pop<T>(&mut self, expected: T)
+        where
+            Object: std::cmp::PartialEq<T>,
+            T: Debug,
+    {
+        match self.stack.pop() {
+            Some(item) => assert_eq!(item, expected),
+            None => panic!("tried to pop {:?} from empty stack", expected),
+        }
+    }
 }

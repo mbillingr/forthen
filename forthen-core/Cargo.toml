@@ -5,3 +5,4 @@ authors = ["Martin Billinger <flkazemakase@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+error-chain = "0.12"

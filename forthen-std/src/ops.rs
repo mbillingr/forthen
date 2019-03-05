@@ -1,4 +1,4 @@
-use forthen_core::Result;
+use forthen_core::errors::Result;
 use forthen_core::State;
 
 /// Load basic operations into the dictionary

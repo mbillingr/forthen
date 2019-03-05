@@ -1,5 +1,5 @@
 use crate::abstract_stack::{AbstractStack, Sequence, StackItem};
-use crate::error::{ParseError, Result};
+use crate::errors::*;
 use crate::parsing::tokenize;
 use std::collections::{HashMap, HashSet};
 
@@ -77,7 +77,7 @@ impl StackEffect {
     }
 
     pub fn parse(input: &str) -> Result<Self> {
-        parse_effect(&mut tokenize(input).peekable())
+        parse_effect(&mut tokenize(input).peekable()).map_err(|e| e.into())
     }
 
     pub fn chain(&self, rhs: &Self) -> Result<Self> {
@@ -411,7 +411,7 @@ fn parse_sequence<'a>(
         sequence.push(element);
     }
 
-    Err(ParseError::EndOfInput.into())
+    Err(ErrorKind::EndOfInput.into())
 }
 
 #[cfg(test)]
@@ -484,32 +484,35 @@ mod tests {
 
     #[test]
     fn equivalence_effects() {
-        assert_eq!(StackEffect::parse("( -- )"), StackEffect::parse("(--)"));
         assert_eq!(
-            StackEffect::parse("(b -- b)"),
-            StackEffect::parse("(a -- a)")
+            StackEffect::parse("( -- )").unwrap(),
+            StackEffect::parse("(--)").unwrap()
         );
         assert_eq!(
-            StackEffect::parse("(x y -- y x)"),
-            StackEffect::parse("(a b -- b a)")
+            StackEffect::parse("(b -- b)").unwrap(),
+            StackEffect::parse("(a -- a)").unwrap()
+        );
+        assert_eq!(
+            StackEffect::parse("(x y -- y x)").unwrap(),
+            StackEffect::parse("(a b -- b a)").unwrap()
         );
 
         assert_ne!(
-            StackEffect::parse("(a b -- a a)"),
-            StackEffect::parse("(a b -- b b)")
+            StackEffect::parse("(a b -- a a)").unwrap(),
+            StackEffect::parse("(a b -- b b)").unwrap()
         );
         assert_eq!(
-            StackEffect::parse("(a b -- c)"),
-            StackEffect::parse("(b a -- z)")
+            StackEffect::parse("(a b -- c)").unwrap(),
+            StackEffect::parse("(b a -- z)").unwrap()
         );
 
         assert_eq!(
-            StackEffect::parse("( -- a b)"),
-            StackEffect::parse("( -- b a)")
+            StackEffect::parse("( -- a b)").unwrap(),
+            StackEffect::parse("( -- b a)").unwrap()
         );
         assert_eq!(
-            StackEffect::parse("(b -- a b b c)"),
-            StackEffect::parse("(b -- c b b a)")
+            StackEffect::parse("(b -- a b b c)").unwrap(),
+            StackEffect::parse("(b -- c b b a)").unwrap()
         );
     }
 

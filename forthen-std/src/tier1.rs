@@ -1,4 +1,4 @@
-use forthen_core::Result;
+use forthen_core::errors::Result;
 use forthen_core::State;
 
 /// Load language tier 1 into the dictionary

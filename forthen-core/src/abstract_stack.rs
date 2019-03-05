@@ -1,4 +1,4 @@
-use crate::error::StackEffectError;
+use crate::errors::*;
 use crate::stack_effect::{EffectNode, StackEffect};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -6,7 +6,6 @@ use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::mem::replace;
 use std::rc::Rc;
-use std::result::Result;
 
 pub type ItemRef = RefHash<StackItem>;
 
@@ -275,11 +274,7 @@ impl Substitutions {
             .unwrap_or(Sequence::single(item))
     }
 
-    fn add_sequence(
-        &mut self,
-        a: ItemRef,
-        b: Sequence,
-    ) -> std::result::Result<Vec<(ItemRef, Sequence)>, StackEffectError> {
+    fn add_sequence(&mut self, a: ItemRef, b: Sequence) -> Result<Vec<(ItemRef, Sequence)>> {
         let mut items = vec![];
 
         if let Some(item) = self.subs.get(&a) {
@@ -299,7 +294,7 @@ impl Substitutions {
                 let a = a.into_item();
 
                 if b.contains(&a) {
-                    return Err(StackEffectError::Incompatible);
+                    return Err(ErrorKind::IncompatibleStackEffects.into());
                 }
 
                 for other_b in self.subs.values_mut() {
@@ -336,7 +331,7 @@ impl AbstractStack {
         }
     }
 
-    pub fn pop<T: Into<Sequence>>(&mut self, x: T) -> Result<Sequence, StackEffectError> {
+    pub fn pop<T: Into<Sequence>>(&mut self, x: T) -> Result<Sequence> {
         self.pop_sequence(x.into())
     }
 
@@ -344,7 +339,7 @@ impl AbstractStack {
         self.push_sequence(x.into())
     }
 
-    fn pop_sequence(&mut self, mut targets: Sequence) -> Result<Sequence, StackEffectError> {
+    fn pop_sequence(&mut self, mut targets: Sequence) -> Result<Sequence> {
         let mut result = Sequence::new();
         while let Some(target) = targets.pop() {
             result.extend(self.pop_item(target)?);
@@ -352,7 +347,7 @@ impl AbstractStack {
         Ok(result)
     }
 
-    fn pop_item(&mut self, target: ItemRef) -> Result<Sequence, StackEffectError> {
+    fn pop_item(&mut self, target: ItemRef) -> Result<Sequence> {
         if let StackItem::Row(_) = *target {
             let x = replace(&mut self.outputs, Sequence::new());
             self.substitute(&target, &x)?;
@@ -407,7 +402,7 @@ impl AbstractStack {
         self.inputs.insert(1, item);
     }
 
-    fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<(), StackEffectError> {
+    fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<()> {
         for (a, b) in self.subs.add_sequence(a.clone(), b.clone())? {
             self.inputs.substitute(&a, &b);
             self.outputs.substitute(&a, &b);
@@ -415,7 +410,7 @@ impl AbstractStack {
         Ok(())
     }
 
-    pub fn apply_effect(&mut self, effect: &StackEffect) -> Result<(), StackEffectError> {
+    pub fn apply_effect(&mut self, effect: &StackEffect) -> Result<()> {
         let mut names = HashMap::new();
 
         for i in effect.inputs.iter().rev() {
@@ -649,15 +644,14 @@ mod tests {
 
         // CALL (..c f(..c i j -- ..d k) - ..d)
         let c = StackItem::row("c");
-        assert_eq!(
-            astack
-                .pop(StackItem::quot(
-                    "f",
-                    &[c.clone(), StackItem::item("i"), StackItem::item("j")],
-                    &[c.clone(), StackItem::item("k")],
-                ))
-                .err(),
-            Some(StackEffectError::Incompatible)
-        )
+        if let Err(Error(ErrorKind::IncompatibleStackEffects, _)) = astack.pop(StackItem::quot(
+            "f",
+            &[c.clone(), StackItem::item("i"), StackItem::item("j")],
+            &[c.clone(), StackItem::item("k")],
+        )) {
+
+        } else {
+            panic!("Expected Error")
+        }
     }
 }

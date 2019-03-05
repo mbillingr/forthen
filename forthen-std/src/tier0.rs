@@ -1,9 +1,6 @@
-use forthen_core::error::Error;
-use forthen_core::error::ParseError;
-use forthen_core::error::TypeError;
+use forthen_core::errors::*;
 use forthen_core::CompilerScope;
 use forthen_core::Object;
-use forthen_core::Result;
 use forthen_core::StackEffect;
 use forthen_core::State;
 use forthen_core::{Opcode, Quotation};
@@ -13,8 +10,8 @@ use std::rc::Rc;
 ///
 /// Tier 0 contains low level native words required for extending the language
 pub fn tier0(state: &mut State) -> Result<()> {
-    state.add_native_parse_word(";", |_| ParseError::UnexpectedDelimiter(";").into());
-    state.add_native_parse_word("]", |_| ParseError::UnexpectedDelimiter("]").into());
+    state.add_native_parse_word(";", |_| Err(ErrorKind::UnexpectedDelimiter(";").into()));
+    state.add_native_parse_word("]", |_| Err(ErrorKind::UnexpectedDelimiter("]").into()));
 
     state.add_native_parse_word("SYNTAX:", |state| {
         let name = state.next_token().expect("word name");
@@ -110,9 +107,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
     let fetch = state.dictionary.lookup("fetch").unwrap().clone();
 
     state.add_closure_parse_word("set", move |state| {
-        let name = state
-            .next_token()
-            .ok_or(ParseError::GeneralExpectation("variable name$"))?;
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
@@ -123,9 +118,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
     });
 
     state.add_closure_parse_word("get", move |state| {
-        let name = state
-            .next_token()
-            .ok_or(ParseError::GeneralExpectation("variable name$"))?;
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
@@ -138,9 +131,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
     state.add_closure_parse_word("::", move |state| {
         // todo: parse stack effect from word definition and compare against derived stack effect?
 
-        let name = state
-            .next_token()
-            .ok_or(ParseError::GeneralExpectation("word name$"))?;
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
         state.scopes.push(CompilerScope::new());
 
@@ -160,7 +151,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         quot.ops.push(Opcode::call_word(push_frame.clone()));
         quot.ops.extend(
             Rc::try_unwrap(state.pop()?.try_into_rc_quotation()?)
-                .or(Err(Error::TypeError(TypeError::RcUnwrapError)))?
+                .or(Err(ErrorKind::OwnershipError))?
                 .ops,
         );
         quot.ops.push(Opcode::push_i32(n_vars));
@@ -209,14 +200,14 @@ mod tests {
 
         state.run("123").unwrap(); // push sentinel value on stack
         state.run(": the-answer 42 ;").unwrap(); // define new word
-        assert_eq!(state.pop_i32(), Ok(123)); // make sure the word definition has no effect on the stack
+        assert_eq!(state.pop_i32().unwrap(), 123); // make sure the word definition has no effect on the stack
         state.run("the-answer").unwrap(); // run the new word
-        assert_eq!(state.pop_i32(), Ok(42));
+        assert_eq!(state.pop_i32().unwrap(), 42);
 
         state.run(": more-answers the-answer the-answer ;").unwrap();
         state.run("more-answers").unwrap();
-        assert_eq!(state.pop_i32(), Ok(42));
-        assert_eq!(state.pop_i32(), Ok(42));
+        assert_eq!(state.pop_i32().unwrap(), 42);
+        assert_eq!(state.pop_i32().unwrap(), 42);
     }
 
     #[test]
@@ -241,9 +232,9 @@ mod tests {
         state.run("123").unwrap(); // push sentinel value on stack
         state.run("SYNTAX: the-answer 42 -rot ;").unwrap(); // define new parse word that puts a number deep in the stack
         state.run(": nop the-answer ; .s").unwrap(); // define a new word
-        assert_eq!(state.pop_i32(), Ok(42)); // the number should end up on the stack during word definition
+        assert_eq!(state.pop_i32().unwrap(), 42); // the number should end up on the stack during word definition
         state.run("nop").unwrap(); // make sure the new word does nothing
-        assert_eq!(state.pop_i32(), Ok(123));
+        assert_eq!(state.pop_i32().unwrap(), 123);
     }
 
     #[test]
@@ -264,17 +255,17 @@ mod tests {
         state.run(":: drop   set x ;").unwrap();
 
         state.run("42 dup").unwrap();
-        assert_eq!(state.pop_i32(), Ok(42));
-        assert_eq!(state.pop_i32(), Ok(42));
+        state.assert_pop(42);
+        state.assert_pop(42);
 
         state.run("12 34 swap").unwrap();
-        assert_eq!(state.pop_i32(), Ok(12));
-        assert_eq!(state.pop_i32(), Ok(34));
+        state.assert_pop(12);
+        state.assert_pop(34);
 
         state.run("56 78 over").unwrap();
-        assert_eq!(state.pop_i32(), Ok(56));
-        assert_eq!(state.pop_i32(), Ok(78));
-        assert_eq!(state.pop_i32(), Ok(56));
+        state.assert_pop(56);
+        state.assert_pop(78);
+        state.assert_pop(56);
 
         state.run("\"a\" \"b\" \"c\" rot").unwrap();
         assert_eq!(state.pop_str().unwrap(), "a");
@@ -282,7 +273,7 @@ mod tests {
         assert_eq!(state.pop_str().unwrap(), "b");
 
         state.run("0 drop").unwrap();
-        assert_eq!(state.pop_i32(), Ok(123));
+        state.assert_pop(123);
     }
 
     #[test]
@@ -293,18 +284,12 @@ mod tests {
         state.run("123").unwrap();; // push sentinel value on stack
 
         state.run("[ 42 ]").unwrap();;
-        assert_eq!(
-            state.pop_i32(),
-            Err(Error::TypeError(TypeError::ExpectationError(
-                "[ 42 ]".to_string(),
-                "i32".to_string()
-            )))
-        );
+        assert!(state.pop_i32().is_err());
 
         state.run("[ 42 ] call").unwrap();;
-        assert_eq!(state.pop_i32(), Ok(42));
+        state.assert_pop(42);
 
-        assert_eq!(state.pop_i32(), Ok(123));
+        state.assert_pop(123);
     }
 
     #[test]
@@ -345,6 +330,6 @@ mod tests {
         assert_eq!(state.pop_str().unwrap(), "yes");
         assert_eq!(state.pop_str().unwrap(), "yes");
 
-        assert_eq!(state.pop_i32(), Ok(123));
+        state.assert_pop(123);
     }
 }

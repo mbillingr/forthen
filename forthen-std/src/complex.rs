@@ -1,4 +1,4 @@
-use forthen_core::Result;
+use forthen_core::errors::*;
 use forthen_core::State;
 use forthen_core::{DynamicObject, Object};
 use std::any::Any;

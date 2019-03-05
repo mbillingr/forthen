@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::errors::Result;
 use crate::State;
 use std::rc::Rc;
 

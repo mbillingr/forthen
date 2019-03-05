@@ -3,8 +3,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use crate::dictionary::{Dictionary, Entry, Word};
-use crate::error::ParseError;
-use crate::error::{Result, StackError};
+use crate::errors::*;
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::objects::{callable::NativeFunction, prelude::*};
 use crate::parsing::tokenize;
@@ -67,7 +66,7 @@ impl State {
     pub fn parse_until(&mut self, delimiter: &str) -> Result<()> {
         loop {
             match self.next_token() {
-                None => return Err(ParseError::EndOfInput.into()),
+                None => return Err(ErrorKind::EndOfInput.into()),
                 Some(ref token) if token == delimiter => break,
                 Some(token) => self.parse_token(&token)?,
             }
@@ -81,8 +80,8 @@ impl State {
         let literal = self.factory.parse(&token);
         let word = self.dictionary.lookup(&token);
         match (literal, word) {
-            (None, None) => return Err(ParseError::UnknownWord(token.to_string()).into()),
-            (Some(_), Some(_)) => return Err(ParseError::AmbiguousWord(token.to_string()).into()),
+            (None, None) => return Err(ErrorKind::UnknownWord(token.to_string()).into()),
+            (Some(_), Some(_)) => return Err(ErrorKind::AmbiguousWord(token.to_string()).into()),
             (Some(obj), None) => self
                 .top_mut()?
                 .try_as_quotation_mut()?
@@ -234,13 +233,13 @@ impl State {
     }
 
     pub fn pop(&mut self) -> Result<Object> {
-        self.stack.pop().ok_or(StackError::StackUnderflow.into())
+        self.stack.pop().ok_or(ErrorKind::StackUnderflow.into())
     }
 
     pub fn top_mut(&mut self) -> Result<&mut Object> {
         self.stack
             .last_mut()
-            .ok_or(StackError::StackUnderflow.into())
+            .ok_or(ErrorKind::StackUnderflow.into())
     }
 
     pub fn push_str(&mut self, s: &str) -> Result<()> {
@@ -269,7 +268,8 @@ impl State {
         self.push(Object::Quotation(
             Rc::new(Quotation::new()),
             StackEffect::new(),
-        )).unwrap();
+        ))
+        .unwrap();
     }
 
     pub fn dup(&mut self) -> Result<()> {

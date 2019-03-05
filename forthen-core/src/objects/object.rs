@@ -1,5 +1,5 @@
 use crate::dictionary::WordId;
-use crate::error::{Result, TypeError};
+use crate::errors::*;
 use std::rc::Rc;
 //use crate::scope::ScopeDef;
 use super::callable::{NativeClosure, NativeFunction};
@@ -68,7 +68,7 @@ impl std::ops::Add for Object {
         use Object::*;
         match (self, other) {
             (I32(a), I32(b)) => Ok(I32(a + b)),
-            (a, b) => Err(TypeError::General(format!("Cannot add {:?} + {:?}", a, b)).into()),
+            (a, b) => Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", a, b)).into()),
         }
     }
 }
@@ -79,7 +79,9 @@ impl std::ops::Sub for Object {
         use Object::*;
         match (self, other) {
             (I32(a), I32(b)) => Ok(I32(a - b)),
-            (a, b) => Err(TypeError::General(format!("Cannot subtract {:?} - {:?}", a, b)).into()),
+            (a, b) => {
+                Err(ErrorKind::TypeError(format!("Cannot subtract {:?} - {:?}", a, b)).into())
+            }
         }
     }
 }
@@ -90,7 +92,9 @@ impl std::ops::Mul for Object {
         use Object::*;
         match (self, other) {
             (I32(a), I32(b)) => Ok(I32(a * b)),
-            (a, b) => Err(TypeError::General(format!("Cannot multiply {:?} * {:?}", a, b)).into()),
+            (a, b) => {
+                Err(ErrorKind::TypeError(format!("Cannot multiply {:?} * {:?}", a, b)).into())
+            }
         }
     }
 }
@@ -101,7 +105,7 @@ impl std::ops::Div for Object {
         use Object::*;
         match (self, other) {
             (I32(a), I32(b)) => Ok(I32(a / b)),
-            (a, b) => Err(TypeError::General(format!("Cannot divide {:?} / {:?}", a, b)).into()),
+            (a, b) => Err(ErrorKind::TypeError(format!("Cannot divide {:?} / {:?}", a, b)).into()),
         }
     }
 }
@@ -155,9 +159,7 @@ impl Object {
             Object::Quotation(_, se)
             | Object::NativeFunction(_, se)
             | Object::NativeClosure(_, se) => Ok(se.clone()),
-            _ => Err(
-                TypeError::ExpectationError(format!("{:?}", self), "callable".to_string()).into(),
-            ),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
 
@@ -168,21 +170,15 @@ impl Object {
             Object::Quotation(quot, _) => quot.run(state),
             Object::NativeFunction(fun, _) => fun(state),
             Object::NativeClosure(fun, _) => fun(state),
-            _ => Err(
-                TypeError::ExpectationError(format!("{:?}", self), "callable".to_string()).into(),
-            ),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
 
     /// allows to mutate a List object if there is no other reference to it
     pub fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
         match self {
-            Object::List(vec) => Rc::get_mut(vec).ok_or(TypeError::MutationError.into()),
-            _ => Err(TypeError::ExpectationError(
-                format!("{:?}", self),
-                "mutable list".to_string(),
-            )
-            .into()),
+            Object::List(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
 
@@ -192,7 +188,7 @@ impl Object {
     pub fn as_slice(&self) -> Result<&[Object]> {
         match self {
             Object::List(vec) => Ok(&vec),
-            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "list".to_string()).into()),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
 
@@ -200,7 +196,7 @@ impl Object {
     pub fn into_rc_vec(self) -> Result<Rc<Vec<Object>>> {
         match self {
             Object::List(vec) => Ok(vec),
-            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "list".to_string()).into()),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
 
@@ -209,7 +205,7 @@ impl Object {
         match self {
             Object::True => Ok(true),
             Object::False => Ok(false),
-            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "bool".to_string()).into()),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not boolean", self)).into()),
         }
     }
 
@@ -217,7 +213,7 @@ impl Object {
     pub fn try_into_i32(self) -> Result<i32> {
         match self {
             Object::I32(i) => Ok(i),
-            _ => Err(TypeError::ExpectationError(format!("{:?}", self), "i32".to_string()).into()),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is no integer", self)).into()),
         }
     }
 
@@ -225,29 +221,21 @@ impl Object {
     pub fn try_into_rc_string(self) -> Result<Rc<String>> {
         match self {
             Object::String(rcs) => Ok(rcs),
-            _ => Err(
-                TypeError::ExpectationError(format!("{:?}", self), "RcString".to_string()).into(),
-            ),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is no string", self)).into()),
         }
     }
 
     pub fn try_into_rc_quotation(self) -> Result<Rc<Quotation>> {
         match self {
             Object::Quotation(vec, _) => Ok(vec),
-            _ => Err(
-                TypeError::ExpectationError(format!("{:?}", self), "quotation".to_string()).into(),
-            ),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is no quotation", self)).into()),
         }
     }
 
     pub fn try_as_quotation_mut(&mut self) -> Result<&mut Quotation> {
         match self {
-            Object::Quotation(vec, _) => Rc::get_mut(vec).ok_or(TypeError::MutationError.into()),
-            _ => Err(TypeError::ExpectationError(
-                format!("{:?}", self),
-                "mutable quotation".to_string(),
-            )
-            .into()),
+            Object::Quotation(vec, _) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not a quotation", self)).into()),
         }
     }
 }
