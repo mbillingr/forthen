@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use crate::objects::Object;
 use crate::rcstring::RcString;
+use crate::vm::Quotation;
 
 #[derive(Debug)]
 pub enum Word {
@@ -22,6 +23,7 @@ impl Word {
 pub struct Entry {
     pub name: Rc<String>,
     pub word: Word,
+    pub source: Option<Rc<Quotation>>,
 }
 
 pub type WordId = Rc<Entry>;

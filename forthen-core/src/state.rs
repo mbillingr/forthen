@@ -115,6 +115,7 @@ impl State {
                     func,
                     stack_effect.into_stack_effect(),
                 ))),
+                source: None
             },
         );
     }
@@ -149,6 +150,7 @@ impl State {
                     func,
                     StackEffect::new_mod("acc"),
                 ))),
+                source: None
             },
         );
     }
@@ -166,6 +168,7 @@ impl State {
             name.clone(),
             Entry {
                 name,
+                source: Some(quot.clone()),
                 word: Word::Word(Object::Quotation(quot, stack_effect.into_stack_effect())),
             },
         );
@@ -180,6 +183,7 @@ impl State {
             name.clone(),
             Entry {
                 name,
+                source: Some(quot.clone()),
                 word: Word::ParsingWord(Object::Quotation(quot, StackEffect::new_mod("acc"))),
             },
         );
