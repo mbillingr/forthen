@@ -6,15 +6,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use super::prelude::*;
 
-/// A pure function has no side effects. It can only access the value stack.
-pub type PureFunction = fn(&mut Vec<Object>) -> Result<()>;
-
-/// A native function can manipulate the entire state.
-pub type NativeFunction = fn(&mut State) -> Result<()>;
-
-/// A closure is allowed to contain external state.
-pub type NativeClosure = Rc<dyn Fn(&mut State) -> Result<()>>;
-
 type Pure = fn(&mut Vec<Object>) -> Result<()>;
 type Const = dyn Fn(&mut State) -> Result<()>;
 type Mutie = RefCell<dyn FnMut(&mut State) -> Result<()>>;
@@ -27,7 +18,7 @@ pub struct WithStackEffect<F: ?Sized> {
 
 #[derive(Clone)]
 pub enum Callable {
-    Pure(fn(&mut Vec<Object>) -> Result<()>, Rc<StackEffect>),
+    Pure(Pure, Rc<StackEffect>),
     Const(Rc<WithStackEffect<Const>>),
     Mutie(Rc<WithStackEffect<Mutie>>),
 }
@@ -43,7 +34,7 @@ impl std::fmt::Debug for Callable {
 }
 
 impl Callable {
-    pub fn new_pure(func: fn(&mut Vec<Object>) -> Result<()>, se: StackEffect) -> Self {
+    pub fn new_pure(func: Pure, se: StackEffect) -> Self {
         Callable::Pure(func, Rc::new(se))
     }
 

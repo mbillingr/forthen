@@ -3,7 +3,7 @@ use forthen_core::CompilerScope;
 use forthen_core::Object;
 use forthen_core::StackEffect;
 use forthen_core::State;
-use forthen_core::{Opcode, Quotation};
+use forthen_core::{Opcode, ByteCode};
 use std::rc::Rc;
 
 /// Load language tier 0 into the dictionary
@@ -64,7 +64,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
             se = se.chain(&op.stack_effect()?)?;
         }
 
-        let obj = Object::Quotation(quot, se);
+        let obj = Object::Function(state.compile(quot, se));
         state
             .top_mut()?
             .try_as_quotation_mut()?
@@ -146,7 +146,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         let scope = state.scopes.pop().unwrap();
         let n_vars = scope.len() as i32;
 
-        let mut quot = Quotation::new();
+        let mut quot = ByteCode::new();
         quot.ops.push(Opcode::push_i32(n_vars));
         quot.ops.push(Opcode::call_word(push_frame.clone()));
         quot.ops.extend(

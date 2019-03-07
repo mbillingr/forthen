@@ -4,7 +4,7 @@ use crate::objects::Object;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Opcode {
     Push(Object),
     Call(Object),
@@ -23,7 +23,7 @@ impl Opcode {
     pub fn stack_effect(&self) -> Result<StackEffect> {
         use Opcode::*;
         match self {
-            Push(Object::Quotation(_, se)) => Ok(StackEffect::new_quotation("f", se.clone())),
+            //Push(Object::Quotation(_, se)) => Ok(StackEffect::new_quotation("f", se.clone())),
             Push(_) => Ok(StackEffect::new_pushing("x")),
             Call(obj) => obj.get_stack_effect(),
             TailRecurse => unimplemented!(),
@@ -41,15 +41,14 @@ impl std::fmt::Display for Opcode {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Quotation {
+#[derive(Debug, Clone, PartialEq)]
+pub struct ByteCode {
     pub ops: Vec<Opcode>,
-    //se: StackEffect,
 }
 
-impl Quotation {
+impl ByteCode {
     pub fn new() -> Self {
-        Quotation { ops: vec![] }
+        ByteCode { ops: vec![] }
     }
 
     pub fn run(&self, state: &mut State) -> Result<()> {
@@ -68,7 +67,7 @@ impl Quotation {
     }
 }
 
-impl std::fmt::Display for Quotation {
+impl std::fmt::Display for ByteCode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let items: Vec<_> = self.ops.iter().map(|op| format!("{}", op)).collect();
         write!(f, "{}", items.join(" "))

@@ -9,7 +9,7 @@ use crate::objects::{callable::Callable, prelude::*};
 use crate::parsing::tokenize;
 use crate::scope::CompilerScope;
 use crate::stack_effect::{IntoStackEffect, StackEffect};
-use crate::vm::{Opcode, Quotation};
+use crate::vm::{Opcode, ByteCode};
 
 #[derive(Debug)]
 pub struct State {
@@ -120,20 +120,6 @@ impl State {
         );
     }
 
-    /*pub fn add_native_parse_word<S>(&mut self, name: S, func: NativeFunction)
-    where
-        ObjectFactory: StringManager<S>,
-    {
-        let name = self.factory.get_string(name);
-        self.dictionary.insert(
-            name.clone(),
-            Entry {
-                name,
-                word: Word::ParsingWord(Object::NativeFunction(func, StackEffect::new_mod("acc"))),
-            },
-        );
-    }*/
-
     pub fn add_native_parse_word<S>(
         &mut self,
         name: S,
@@ -156,7 +142,7 @@ impl State {
     }
 
     // todo: this function should almost certainly not be here at this place...
-    fn compile(&self, quot: Rc<Quotation>, se: StackEffect) -> Callable {
+    pub fn compile(&self, quot: Rc<ByteCode>, se: StackEffect) -> Callable {
         // todo: a word made of pure words only should become a pure word too
         Callable::new_const(move |state| quot.run(state), se)
     }
@@ -165,7 +151,7 @@ impl State {
         &mut self,
         name: S,
         stack_effect: impl IntoStackEffect,
-        quot: Rc<Quotation>,
+        quot: Rc<ByteCode>,
     ) where
         ObjectFactory: StringManager<S>,
     {
@@ -180,7 +166,7 @@ impl State {
         );
     }
 
-    pub fn add_compound_parse_word<S>(&mut self, name: S, quot: Rc<Quotation>)
+    pub fn add_compound_parse_word<S>(&mut self, name: S, quot: Rc<ByteCode>)
     where
         ObjectFactory: StringManager<S>,
     {
@@ -201,24 +187,11 @@ impl State {
             None => println!("{:>20}  undefined!", name),
             Some(entry) => match entry.word.inner() {
                 Object::Function(ca) => {
-                    println!("{:>20}   {:50}   <{:?}>", entry.name, format!("({})", ca.get_stack_effect()), ca)
-                }
-                Object::Quotation(quot, se) => {
-                    let ops: Vec<_> = quot
-                        .ops
-                        .iter()
-                        .map(|op| match op {
-                            Opcode::Call(Object::Word(entry)) => format!("{}", entry.name),
-                            Opcode::Call(obj) | Opcode::Push(obj) => format!("{:?}", obj),
-                            Opcode::TailRecurse => format!("tail-recurse"),
-                        })
-                        .collect();
-                    println!(
-                        "{:>20}   {:50}   {}",
-                        entry.name,
-                        format!("({})", se),
-                        ops.join(" ")
-                    )
+                    let func = match entry.source {
+                        None => format!("<{:?}>", ca),
+                        Some(ref byte_code) => format!("{}", byte_code),
+                    };
+                    println!("{:>20}   {:50}   {}", entry.name, format!("({})", ca.get_stack_effect()), func)
                 }
                 _ => println!("{:>20}  invalid word", name),
             },
@@ -275,9 +248,8 @@ impl State {
     }
 
     pub fn begin_compile(&mut self) {
-        self.push(Object::Quotation(
-            Rc::new(Quotation::new()),
-            StackEffect::new(),
+        self.push(Object::ByteCode(
+            Rc::new(ByteCode::new())
         ))
         .unwrap();
     }

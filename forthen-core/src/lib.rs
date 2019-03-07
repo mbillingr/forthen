@@ -19,7 +19,7 @@ pub use objects::prelude::*;
 pub use scope::CompilerScope;
 pub use stack_effect::StackEffect;
 pub use state::State;
-pub use vm::{Opcode, Quotation};
+pub use vm::{Opcode, ByteCode};
 
 #[cfg(test)]
 mod tests {

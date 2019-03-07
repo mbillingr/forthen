@@ -6,7 +6,7 @@ use super::callable::{Callable};
 use super::prelude::*;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
-use crate::vm::Quotation;
+use crate::vm::ByteCode;
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -14,18 +14,14 @@ pub enum Object {
     None,
     False,
     True,
+    I32(i32),
     Word(WordId),
-    Quotation(Rc<Quotation>, StackEffect),
-    /*NativeFunction(NativeFunction, StackEffect),
-    NativeClosure(NativeClosure, StackEffect),*/
+    ByteCode(Rc<ByteCode>),
     Function(Callable),
-    //CompoundFunction(Rc<Vec<Object>>, StackEffect),
-    //ScopedFunction(Rc<Vec<Object>>, StackEffect, ScopeDef),
     List(Rc<Vec<Object>>),
     String(Rc<String>),
-    I32(i32),
 
-    Dynamic(Rc<DynamicObject>),
+    Extension(Rc<DynamicObject>),
 }
 
 impl std::fmt::Debug for Object {
@@ -35,14 +31,12 @@ impl std::fmt::Debug for Object {
             Object::False => write!(f, "False"),
             Object::True => write!(f, "True"),
             Object::Word(id) => write!(f, "{}", id),
-            Object::Quotation(q, _) => write!(f, "[ {} ]", q),
+            Object::ByteCode(q) => write!(f, "[ {} ]", q),
             Object::Function(func) => write!(f, "<{:?}>", func),
-            /*Object::NativeFunction(_, se) => write!(f, "<native ({})>", se),
-            Object::NativeClosure(_, se) => write!(f, "<closure ({})>", se),*/
             Object::List(list) => write!(f, "{:?}", list),
             Object::String(rcs) => write!(f, "{:?}", rcs),
             Object::I32(i) => write!(f, "{:?}", i),
-            Object::Dynamic(dynobj) => write!(f, "{}", dynobj.repr()),
+            Object::Extension(dynobj) => write!(f, "{}", dynobj.repr()),
         }
     }
 }
@@ -53,13 +47,11 @@ impl std::cmp::PartialEq for Object {
         match (self, other) {
             (None, None) => true,
             (Function(a), Function(b)) => a == b,
-            /*(NativeFunction(a, _), NativeFunction(b, _)) => a as *const _ == b as *const _,
-            (NativeClosure(a, _), NativeClosure(b, _)) => &**a as *const _ == &**b as *const _,*/
-            (Quotation(a, _), Quotation(b, _)) => a == b,
+            (ByteCode(a), ByteCode(b)) => a == b,
             (List(a), List(b)) => a == b,
             (String(a), String(b)) => a == b,
             (I32(a), I32(b)) => a == b,
-            (Dynamic(a), Dynamic(b)) => DynamicObject::eq(&**a, &**b),
+            (Extension(a), Extension(b)) => DynamicObject::eq(&**a, &**b),
             _ => false,
         }
     }
@@ -159,9 +151,6 @@ impl Object {
     pub fn get_stack_effect(&self) -> Result<StackEffect> {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
-            Object::Quotation(_, se)
-            /*| Object::NativeFunction(_, se)
-            | Object::NativeClosure(_, se)*/ => Ok(se.clone()),
             Object::Function(f) => Ok(f.get_stack_effect().clone()),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
@@ -171,9 +160,6 @@ impl Object {
     pub fn invoke(&self, state: &mut State) -> Result<()> {
         match self {
             Object::Word(id) => id.word.inner().invoke(state),
-            Object::Quotation(quot, _) => quot.run(state),
-            /*Object::NativeFunction(fun, _) => fun(state),
-            Object::NativeClosure(fun, _) => fun(state),*/
             Object::Function(f) => f.call(state),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
@@ -230,16 +216,16 @@ impl Object {
         }
     }
 
-    pub fn try_into_rc_quotation(self) -> Result<Rc<Quotation>> {
+    pub fn try_into_rc_quotation(self) -> Result<Rc<ByteCode>> {
         match self {
-            Object::Quotation(vec, _) => Ok(vec),
+            Object::ByteCode(vec) => Ok(vec),
             _ => Err(ErrorKind::TypeError(format!("{:?} is no quotation", self)).into()),
         }
     }
 
-    pub fn try_as_quotation_mut(&mut self) -> Result<&mut Quotation> {
+    pub fn try_as_quotation_mut(&mut self) -> Result<&mut ByteCode> {
         match self {
-            Object::Quotation(vec, _) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
+            Object::ByteCode(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a quotation", self)).into()),
         }
     }

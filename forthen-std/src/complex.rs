@@ -37,23 +37,23 @@ pub fn complex(state: &mut State) -> Result<()> {
     // math operations
 
     state.add_native_word("c_zero", "( -- x)", |state| {
-        state.push(Object::Dynamic(Rc::new(Complex::new(0.0, 0.0))))
+        state.push(Object::Extension(Rc::new(Complex::new(0.0, 0.0))))
     });
     state.add_native_word("c_one", "( -- x)", |state| {
-        state.push(Object::Dynamic(Rc::new(Complex::new(1.0, 0.0))))
+        state.push(Object::Extension(Rc::new(Complex::new(1.0, 0.0))))
     });
     state.add_native_word("c_i", "( -- x)", |state| {
-        state.push(Object::Dynamic(Rc::new(Complex::new(0.0, 1.0))))
+        state.push(Object::Extension(Rc::new(Complex::new(0.0, 1.0))))
     });
 
     state.add_native_word("c_add", "(a b -- c)", |state| {
         let a = state.pop()?;
         let b = state.pop()?;
         match (a, b) {
-            (Object::Dynamic(a), Object::Dynamic(b)) => {
+            (Object::Extension(a), Object::Extension(b)) => {
                 let a = a.as_any().downcast_ref::<Complex>().unwrap();
                 let b = b.as_any().downcast_ref::<Complex>().unwrap();
-                state.push(Object::Dynamic(Rc::new(Complex::new(
+                state.push(Object::Extension(Rc::new(Complex::new(
                     a.real + b.real,
                     a.imag + b.imag,
                 ))))
