@@ -155,6 +155,12 @@ impl State {
         );
     }
 
+    // todo: this function should almost certainly not be here at this place...
+    fn compile(&self, quot: Rc<Quotation>, se: StackEffect) -> Callable {
+        // todo: a word made of pure words only should become a pure word too
+        Callable::new_const(move |state| quot.run(state), se)
+    }
+
     pub fn add_compound_word<S>(
         &mut self,
         name: S,
@@ -169,7 +175,7 @@ impl State {
             Entry {
                 name,
                 source: Some(quot.clone()),
-                word: Word::Word(Object::Quotation(quot, stack_effect.into_stack_effect())),
+                word: Word::Word(Object::Function(self.compile(quot, stack_effect.into_stack_effect())))
             },
         );
     }
@@ -184,7 +190,7 @@ impl State {
             Entry {
                 name,
                 source: Some(quot.clone()),
-                word: Word::ParsingWord(Object::Quotation(quot, StackEffect::new_mod("acc"))),
+                word: Word::ParsingWord(Object::Function(self.compile(quot, StackEffect::new_mod("acc"))))
             },
         );
     }
