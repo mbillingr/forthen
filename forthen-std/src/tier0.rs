@@ -106,7 +106,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
     let store = state.dictionary.lookup("store").unwrap().clone();
     let fetch = state.dictionary.lookup("fetch").unwrap().clone();
 
-    state.add_closure_parse_word("set", move |state| {
+    state.add_native_parse_word("set", move |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
@@ -117,7 +117,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         Ok(())
     });
 
-    state.add_closure_parse_word("get", move |state| {
+    state.add_native_parse_word("get", move |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
@@ -128,7 +128,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         Ok(())
     });
 
-    state.add_closure_parse_word("::", move |state| {
+    state.add_native_parse_word("::", move |state| {
         // todo: parse stack effect from word definition and compare against derived stack effect?
 
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;

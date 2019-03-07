@@ -1,8 +1,8 @@
 pub use super::Object;
-use std::any::Any;
-use crate::State;
 use crate::Result;
 use crate::StackEffect;
+use crate::State;
+use std::any::Any;
 
 pub trait DynamicObject {
     fn as_any(&self) -> &dyn Any;
@@ -43,8 +43,9 @@ pub trait NumberInterface {
 }
 
 pub trait CallableInterface {
-    fn get_stack_effect(&self) -> StackEffect;
-    fn call(&self, _state: &mut State) -> StackEffect;
+    fn get_stack_effect(&self) -> &StackEffect;
+    fn call(&self, _state: &mut State) -> Result<()>;
+    fn is_pure(&self) -> bool;
 }
 
 pub trait SequenceInterface {

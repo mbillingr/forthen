@@ -2,7 +2,7 @@ use crate::dictionary::WordId;
 use crate::errors::*;
 use std::rc::Rc;
 //use crate::scope::ScopeDef;
-use super::callable::{NativeClosure, NativeFunction};
+use super::callable::{Callable};
 use super::prelude::*;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
@@ -16,8 +16,9 @@ pub enum Object {
     True,
     Word(WordId),
     Quotation(Rc<Quotation>, StackEffect),
-    NativeFunction(NativeFunction, StackEffect),
-    NativeClosure(NativeClosure, StackEffect),
+    /*NativeFunction(NativeFunction, StackEffect),
+    NativeClosure(NativeClosure, StackEffect),*/
+    Function(Callable),
     //CompoundFunction(Rc<Vec<Object>>, StackEffect),
     //ScopedFunction(Rc<Vec<Object>>, StackEffect, ScopeDef),
     List(Rc<Vec<Object>>),
@@ -35,8 +36,9 @@ impl std::fmt::Debug for Object {
             Object::True => write!(f, "True"),
             Object::Word(id) => write!(f, "{}", id),
             Object::Quotation(q, _) => write!(f, "[ {} ]", q),
-            Object::NativeFunction(_, se) => write!(f, "<native ({})>", se),
-            Object::NativeClosure(_, se) => write!(f, "<closure ({})>", se),
+            Object::Function(func) => write!(f, "<{:?}>", func),
+            /*Object::NativeFunction(_, se) => write!(f, "<native ({})>", se),
+            Object::NativeClosure(_, se) => write!(f, "<closure ({})>", se),*/
             Object::List(list) => write!(f, "{:?}", list),
             Object::String(rcs) => write!(f, "{:?}", rcs),
             Object::I32(i) => write!(f, "{:?}", i),
@@ -50,8 +52,9 @@ impl std::cmp::PartialEq for Object {
         use Object::*;
         match (self, other) {
             (None, None) => true,
-            (NativeFunction(a, _), NativeFunction(b, _)) => a as *const _ == b as *const _,
-            (NativeClosure(a, _), NativeClosure(b, _)) => &**a as *const _ == &**b as *const _,
+            (Function(a), Function(b)) => a == b,
+            /*(NativeFunction(a, _), NativeFunction(b, _)) => a as *const _ == b as *const _,
+            (NativeClosure(a, _), NativeClosure(b, _)) => &**a as *const _ == &**b as *const _,*/
             (Quotation(a, _), Quotation(b, _)) => a == b,
             (List(a), List(b)) => a == b,
             (String(a), String(b)) => a == b,
@@ -157,8 +160,9 @@ impl Object {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
             Object::Quotation(_, se)
-            | Object::NativeFunction(_, se)
-            | Object::NativeClosure(_, se) => Ok(se.clone()),
+            /*| Object::NativeFunction(_, se)
+            | Object::NativeClosure(_, se)*/ => Ok(se.clone()),
+            Object::Function(f) => Ok(f.get_stack_effect().clone()),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
@@ -168,8 +172,9 @@ impl Object {
         match self {
             Object::Word(id) => id.word.inner().invoke(state),
             Object::Quotation(quot, _) => quot.run(state),
-            Object::NativeFunction(fun, _) => fun(state),
-            Object::NativeClosure(fun, _) => fun(state),
+            /*Object::NativeFunction(fun, _) => fun(state),
+            Object::NativeClosure(fun, _) => fun(state),*/
+            Object::Function(f) => f.call(state),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }

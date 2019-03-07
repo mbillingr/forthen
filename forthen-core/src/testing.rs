@@ -23,9 +23,9 @@ impl State {
     }
 
     pub fn assert_pop<T>(&mut self, expected: T)
-        where
-            Object: std::cmp::PartialEq<T>,
-            T: Debug,
+    where
+        Object: std::cmp::PartialEq<T>,
+        T: Debug,
     {
         match self.stack.pop() {
             Some(item) => assert_eq!(item, expected),

@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::dictionary::{Dictionary, Entry, Word};
 use crate::errors::*;
 use crate::object_factory::{ObjectFactory, StringManager};
-use crate::objects::{callable::NativeFunction, prelude::*};
+use crate::objects::{callable::Callable, prelude::*};
 use crate::parsing::tokenize;
 use crate::scope::CompilerScope;
 use crate::stack_effect::{IntoStackEffect, StackEffect};
@@ -102,7 +102,7 @@ impl State {
         &mut self,
         name: S,
         stack_effect: impl IntoStackEffect,
-        func: NativeFunction,
+        func: impl Fn(&mut State) -> Result<()> + 'static,
     ) where
         ObjectFactory: StringManager<S>,
     {
@@ -111,15 +111,15 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::Word(Object::NativeFunction(
+                word: Word::Word(Object::Function(Callable::new_const(
                     func,
                     stack_effect.into_stack_effect(),
-                )),
+                ))),
             },
         );
     }
 
-    pub fn add_native_parse_word<S>(&mut self, name: S, func: NativeFunction)
+    /*pub fn add_native_parse_word<S>(&mut self, name: S, func: NativeFunction)
     where
         ObjectFactory: StringManager<S>,
     {
@@ -131,9 +131,9 @@ impl State {
                 word: Word::ParsingWord(Object::NativeFunction(func, StackEffect::new_mod("acc"))),
             },
         );
-    }
+    }*/
 
-    pub fn add_closure_parse_word<S>(
+    pub fn add_native_parse_word<S>(
         &mut self,
         name: S,
         func: impl Fn(&mut State) -> Result<()> + 'static,
@@ -145,10 +145,10 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::ParsingWord(Object::NativeClosure(
-                    Rc::new(func),
+                word: Word::ParsingWord(Object::Function(Callable::new_const(
+                    func,
                     StackEffect::new_mod("acc"),
-                )),
+                ))),
             },
         );
     }
@@ -190,8 +190,8 @@ impl State {
         match entry {
             None => println!("{:>20}  undefined!", name),
             Some(entry) => match entry.word.inner() {
-                Object::NativeFunction(_, se) => {
-                    println!("{:>20}   {:50}   <native>", entry.name, format!("({})", se))
+                Object::Function(ca) => {
+                    println!("{:>20}   {:50}   <{:?}>", entry.name, format!("({})", ca.get_stack_effect()), ca)
                 }
                 Object::Quotation(quot, se) => {
                     let ops: Vec<_> = quot
