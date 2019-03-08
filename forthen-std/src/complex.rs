@@ -33,12 +33,6 @@ impl ObjectInterface for Complex {
         state.push(result)
     }
 
-    fn as_number(&self) -> Option<&dyn NumberInterface> {
-        Some(self)
-    }
-}
-
-impl NumberInterface for Complex {
     fn add(&self, state: &mut State) -> Result<()> {
         let other = state.pop()?;
         let result = match other.as_any().downcast_ref::<Self>() {

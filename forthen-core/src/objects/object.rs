@@ -244,16 +244,6 @@ impl ObjectInterface for Object {
         Ok(())
     }
 
-    fn as_number(&self) -> Option<&dyn NumberInterface> {
-        Some(self)
-    }
-    fn as_callable(&self) -> Option<&dyn NumberInterface> {
-        Some(self)
-    }
-    fn as_sequence(&self) -> Option<&dyn SequenceInterface> {
-        Some(self)
-    }
-
     fn is_number(&self) -> bool {
         match self {
             Object::I32(_) => true,
@@ -274,31 +264,11 @@ impl ObjectInterface for Object {
             _ => false,
         }
     }
-}
 
-impl NumberInterface for Object {
-    fn add(&self, state: &mut State) -> Result<()> {
-        use Object::*;
-        let other = state.pop()?;
-        match (self, &other) {
-            (I32(a), I32(b)) => return state.push(I32(a + b)),
-            (Extension(a), _) => {
-                if let Some(a) = a.as_number() {
-                    state.push(other)?;
-                    return a.add(state);
-                }
-            }
-            (_, _) => {}
-        }
-        Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
-    }
-}
-
-impl CallableInterface for Object {
-    fn get_stack_effect(&self) -> &StackEffect {
+    fn get_stack_effect(&self) -> Result<&StackEffect> {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
-            Object::Function(f) => f.get_stack_effect(),
+            Object::Function(f) => Ok(f.get_stack_effect()),
             _ => panic!("{:?} is not callable", self),
         }
     }
@@ -318,9 +288,7 @@ impl CallableInterface for Object {
             _ => panic!("{:?} is not callable", self),
         }
     }
-}
 
-impl SequenceInterface for Object {
     fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
         match self {
             Object::List(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
@@ -333,5 +301,19 @@ impl SequenceInterface for Object {
             Object::List(vec) => Ok(&vec),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
+    }
+
+    fn add(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => return state.push(I32(a + b)),
+            (Extension(a), _) => {
+                state.push(other)?;
+                return a.add(state);
+            }
+            (_, _) => {}
+        }
+        Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
     }
 }

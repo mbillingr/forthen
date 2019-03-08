@@ -1,4 +1,3 @@
-use super::prelude::*;
 use crate::errors::Result;
 use crate::Object;
 use crate::StackEffect;
@@ -59,17 +58,16 @@ impl Callable {
             Callable::Mutie(ca) => &*ca.func.borrow() as *const _ as *const u8,
         }
     }
-}
 
-impl CallableInterface for Callable {
-    fn get_stack_effect(&self) -> &StackEffect {
+    pub fn get_stack_effect(&self) -> &StackEffect {
         match self {
             Callable::Pure(_, se) => &*se,
             Callable::Const(ca) => &ca.se,
             Callable::Mutie(ca) => &ca.se,
         }
     }
-    fn call(&self, state: &mut State) -> Result<()> {
+
+    pub fn call(&self, state: &mut State) -> Result<()> {
         match self {
             Callable::Pure(f, _) => f(&mut state.stack),
             Callable::Const(ca) => (ca.func)(state),
@@ -77,7 +75,7 @@ impl CallableInterface for Callable {
         }
     }
 
-    fn is_pure(&self) -> bool {
+    pub fn is_pure(&self) -> bool {
         match self {
             Callable::Pure(_, _) => true,
             Callable::Const(_) => false,

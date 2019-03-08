@@ -3,6 +3,7 @@ use crate::Result;
 use crate::StackEffect;
 use crate::State;
 use std::any::Any;
+use crate::errors::*;
 
 pub trait ObjectInterface {
     fn as_any(&self) -> &dyn Any;
@@ -15,38 +16,20 @@ pub trait ObjectInterface {
 
     fn cmp_equal(&self, _state: &mut State) -> Result<()>;
 
-    fn as_number(&self) -> Option<&dyn NumberInterface> {
-        None
-    }
-    fn as_callable(&self) -> Option<&dyn NumberInterface> {
-        None
-    }
-    fn as_sequence(&self) -> Option<&dyn SequenceInterface> {
-        None
-    }
-
-    fn is_number(&self) -> bool {
-        self.as_number().is_some()
-    }
+    fn is_number(&self) -> bool { false }
     fn is_callable(&self) -> bool {
-        self.as_callable().is_some()
+        false
     }
     fn is_sequence(&self) -> bool {
-        self.as_sequence().is_some()
+        false
     }
-}
 
-pub trait NumberInterface {
-    fn add(&self, _state: &mut State) -> Result<()>;
-}
+    fn get_stack_effect(&self) -> Result<&StackEffect> { Err(ErrorKind::TypeError(format!("{:?} does not have stack effects", self.repr_sys())).into()) }
+    fn call(&self, _state: &mut State) -> Result<()> { Err(ErrorKind::TypeError(format!("{:?} is not callable", self.repr_sys())).into()) }
+    fn is_pure(&self) -> bool { false }
 
-pub trait CallableInterface {
-    fn get_stack_effect(&self) -> &StackEffect;
-    fn call(&self, _state: &mut State) -> Result<()>;
-    fn is_pure(&self) -> bool;
-}
+    fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> { Err(ErrorKind::TypeError(format!("as_vec_mut not implemented for {:?}", self.repr_sys())).into()) }
+    fn as_slice(&self) -> Result<&[Object]> { Err(ErrorKind::TypeError(format!("as_slice not implemented for {:?}", self.repr_sys())).into()) }
 
-pub trait SequenceInterface {
-    fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>>;
-    fn as_slice(&self) -> Result<&[Object]>;
+    fn add(&self, _state: &mut State) -> Result<()> { Err(ErrorKind::TypeError(format!("add not implemented for {:?}", self.repr_sys())).into()) }
 }

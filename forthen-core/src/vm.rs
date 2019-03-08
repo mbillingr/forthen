@@ -24,7 +24,7 @@ impl Opcode {
         use Opcode::*;
         match self {
             Push(_) => StackEffect::new_pushing("x"),
-            Call(obj) => obj.get_stack_effect().clone(),
+            Call(obj) => obj.get_stack_effect().unwrap().clone(),
             TailRecurse => unimplemented!(),
         }
     }
