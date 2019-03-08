@@ -1,5 +1,5 @@
 use forthen_core::State;
-use forthen_std::{complex, ops, tier0, tier1};
+use forthen_std::{complex, ops, tier0, tier1, class};
 use rustyline::Editor;
 
 fn main() {
@@ -19,24 +19,30 @@ fn main() {
 
     println!("{:#?}", state);
 
-    state.print_dictionary();
-
     // --------------------
 
     let mut state = State::new();
+    tier0(&mut state).unwrap();
+    tier1(&mut state).unwrap();
+    ops(&mut state).unwrap();
+    complex(&mut state).unwrap();
+    class(&mut state).unwrap();
 
-    state.add_native_word("std:tier0", "( -- )", |state| tier0(state));
+    /*state.add_native_word("std:tier0", "( -- )", |state| tier0(state));
     state.add_native_word("std:tier1", "( -- )", |state| tier1(state));
     state.add_native_word("std:ops", "( -- )", |state| ops(state));
-    state.add_native_word("std:complex", "( -- )", |state| complex(state));
+    state.add_native_word("std:complex", "( -- )", |state| complex(state));*/
     state.add_native_word("words", "( -- )", |state| {
         state.print_dictionary();
         Ok(())
     });
 
+    state.print_dictionary();
+
     let mut rl = Editor::<()>::new();
 
     loop {
+        println!();
         let mut total_length = 0;
         let mut top = vec![];
         for x in state.stack.iter().rev() {

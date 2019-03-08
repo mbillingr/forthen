@@ -1,5 +1,6 @@
 use forthen_core::errors::Result;
 use forthen_core::State;
+use forthen_core::objects::prelude::*;
 
 /// Load language tier 1 into the dictionary
 ///
@@ -11,7 +12,8 @@ pub fn tier1(state: &mut State) -> Result<()> {
         Ok(())
     });
     state.add_native_word(".", "( x -- )", |state| {
-        println!("{:?}", state.pop()?);
+        state.pop()?.repr(state)?;
+        println!("{}", state.pop()?.try_into_rc_string()?);
         Ok(())
     });
 

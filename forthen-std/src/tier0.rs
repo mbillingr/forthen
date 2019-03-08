@@ -6,6 +6,7 @@ use forthen_core::StackEffect;
 use forthen_core::State;
 use forthen_core::{ByteCode, Opcode};
 use std::rc::Rc;
+use forthen_core::object_factory::StringManager;
 
 /// Load language tier 0 into the dictionary
 ///
@@ -13,6 +14,13 @@ use std::rc::Rc;
 pub fn tier0(state: &mut State) -> Result<()> {
     state.add_native_parse_word(";", |_| Err(ErrorKind::UnexpectedDelimiter(";").into()));
     state.add_native_parse_word("]", |_| Err(ErrorKind::UnexpectedDelimiter("]").into()));
+
+    state.add_native_word("next_token", "( -- token)", |state| {
+        let token = state.next_token().expect("token");
+        let token = state.factory.get_string(token);
+        state.push(token)?;
+        Ok(())
+    });
 
     state.add_native_parse_word("SYNTAX:", |state| {
         let name = state.next_token().expect("word name");
