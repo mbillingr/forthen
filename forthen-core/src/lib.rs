@@ -19,7 +19,7 @@ pub use objects::prelude::*;
 pub use scope::CompilerScope;
 pub use stack_effect::StackEffect;
 pub use state::State;
-pub use vm::{Opcode, ByteCode};
+pub use vm::{ByteCode, Opcode};
 
 #[cfg(test)]
 mod tests {
@@ -31,7 +31,7 @@ mod tests {
         state.run("-10 0 25 \"hello forth!\" 2147483647").unwrap();
 
         assert_eq!(state.pop_i32().unwrap(), i32::max_value());
-        assert_eq!(&state.pop_str().unwrap(), "hello forth!");
+        assert_eq!(&state.pop_string().unwrap(), "hello forth!");
         assert_eq!(state.pop_i32().unwrap(), 25);
         assert_eq!(state.pop_i32().unwrap(), 0);
         assert_eq!(state.pop_i32().unwrap(), -10);

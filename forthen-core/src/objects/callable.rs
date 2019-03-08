@@ -1,10 +1,10 @@
+use super::prelude::*;
 use crate::errors::Result;
 use crate::Object;
 use crate::StackEffect;
 use crate::State;
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::prelude::*;
 
 type Pure = fn(&mut Vec<Object>) -> Result<()>;
 type Const = dyn Fn(&mut State) -> Result<()>;

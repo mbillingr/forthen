@@ -1,12 +1,12 @@
+use super::callable::Callable;
+use super::prelude::*;
 use crate::dictionary::WordId;
 use crate::errors::*;
-use std::rc::Rc;
-//use crate::scope::ScopeDef;
-use super::callable::{Callable};
-use super::prelude::*;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 use crate::vm::ByteCode;
+use std::any::Any;
+use std::rc::Rc;
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -21,39 +21,12 @@ pub enum Object {
     List(Rc<Vec<Object>>),
     String(Rc<String>),
 
-    Extension(Rc<DynamicObject>),
+    Extension(Rc<ObjectInterface>),
 }
 
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Object::None => write!(f, "None"),
-            Object::False => write!(f, "False"),
-            Object::True => write!(f, "True"),
-            Object::Word(id) => write!(f, "{}", id),
-            Object::ByteCode(q) => write!(f, "[ {} ]", q),
-            Object::Function(func) => write!(f, "<{:?}>", func),
-            Object::List(list) => write!(f, "{:?}", list),
-            Object::String(rcs) => write!(f, "{:?}", rcs),
-            Object::I32(i) => write!(f, "{:?}", i),
-            Object::Extension(dynobj) => write!(f, "{}", dynobj.repr()),
-        }
-    }
-}
-
-impl std::cmp::PartialEq for Object {
-    fn eq(&self, other: &Object) -> bool {
-        use Object::*;
-        match (self, other) {
-            (None, None) => true,
-            (Function(a), Function(b)) => a == b,
-            (ByteCode(a), ByteCode(b)) => a == b,
-            (List(a), List(b)) => a == b,
-            (String(a), String(b)) => a == b,
-            (I32(a), I32(b)) => a == b,
-            (Extension(a), Extension(b)) => DynamicObject::eq(&**a, &**b),
-            _ => false,
-        }
+        write!(f, "{}", self.repr_sys())
     }
 }
 
@@ -105,6 +78,22 @@ impl std::ops::Div for Object {
     }
 }
 
+impl std::cmp::PartialEq for Object {
+    fn eq(&self, other: &Self) -> bool {
+        use Object::*;
+        match (self, &other) {
+            (None, None) => true,
+            (Function(a), Function(b)) => a == b,
+            (ByteCode(a), ByteCode(b)) => a == b,
+            (List(_a), List(_b)) => unimplemented!(),
+            (String(a), String(b)) => a == b,
+            (I32(a), I32(b)) => a == b,
+            (Extension(_a), _) => unimplemented!(),
+            _ => false,
+        }
+    }
+}
+
 impl std::cmp::PartialEq<i32> for Object {
     fn eq(&self, other: &i32) -> bool {
         match self {
@@ -129,6 +118,15 @@ impl From<Rc<String>> for Object {
     }
 }
 
+impl From<bool> for Object {
+    fn from(b: bool) -> Object {
+        match b {
+            true => Object::True,
+            false => Object::False,
+        }
+    }
+}
+
 impl From<i32> for Object {
     fn from(i: i32) -> Object {
         Object::I32(i)
@@ -148,41 +146,6 @@ impl From<Object> for i32 {
 }
 
 impl Object {
-    pub fn get_stack_effect(&self) -> Result<StackEffect> {
-        match self {
-            Object::Word(id) => id.word.inner().get_stack_effect(),
-            Object::Function(f) => Ok(f.get_stack_effect().clone()),
-            _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
-        }
-    }
-
-    /// if the object is callable, call it otherwise push itself on stack.
-    pub fn invoke(&self, state: &mut State) -> Result<()> {
-        match self {
-            Object::Word(id) => id.word.inner().invoke(state),
-            Object::Function(f) => f.call(state),
-            _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
-        }
-    }
-
-    /// allows to mutate a List object if there is no other reference to it
-    pub fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
-        match self {
-            Object::List(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
-            _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
-        }
-    }
-
-    /// view the object as a slice
-    ///
-    /// Supported variants: `List`
-    pub fn as_slice(&self) -> Result<&[Object]> {
-        match self {
-            Object::List(vec) => Ok(&vec),
-            _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
-        }
-    }
-
     /// convert into reference counted `Vec`
     pub fn into_rc_vec(self) -> Result<Rc<Vec<Object>>> {
         match self {
@@ -227,6 +190,148 @@ impl Object {
         match self {
             Object::ByteCode(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a quotation", self)).into()),
+        }
+    }
+}
+
+impl ObjectInterface for Object {
+    fn as_any(&self) -> &dyn Any {
+        match self {
+            Object::Extension(dynobj) => dynobj.as_any(),
+            _ => self,
+        }
+    }
+
+    fn repr_sys(&self) -> String {
+        match self {
+            Object::None => format!("None"),
+            Object::False => format!("False"),
+            Object::True => format!("True"),
+            Object::Word(id) => format!("{}", id),
+            Object::ByteCode(q) => format!("[ {} ]", q),
+            Object::Function(func) => format!("<{:?}>", func),
+            Object::List(list) => format!("{:?}", list),
+            Object::String(rcs) => format!("{:?}", rcs),
+            Object::I32(i) => format!("{:?}", i),
+            Object::Extension(dynobj) => dynobj.repr_sys(),
+        }
+    }
+
+    fn repr(&self, state: &mut State) -> Result<()> {
+        match self {
+            Object::Extension(dynobj) => dynobj.repr(state),
+            _ => state.push_string(self.repr_sys()),
+        }
+    }
+
+    fn cmp_equal(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        let result = match (self, &other) {
+            (None, None) => true,
+            (Function(a), Function(b)) => a == b,
+            (ByteCode(a), ByteCode(b)) => a == b,
+            (List(_a), List(_b)) => unimplemented!(),
+            (String(a), String(b)) => a == b,
+            (I32(a), I32(b)) => a == b,
+            (Extension(a), _) => {
+                state.push(other)?;
+                return a.cmp_equal(state);
+            }
+            _ => false,
+        };
+        state.push(result)?;
+        Ok(())
+    }
+
+    fn as_number(&self) -> Option<&dyn NumberInterface> {
+        Some(self)
+    }
+    fn as_callable(&self) -> Option<&dyn NumberInterface> {
+        Some(self)
+    }
+    fn as_sequence(&self) -> Option<&dyn SequenceInterface> {
+        Some(self)
+    }
+
+    fn is_number(&self) -> bool {
+        match self {
+            Object::I32(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_callable(&self) -> bool {
+        match self {
+            Object::Word(_) | Object::Function(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_sequence(&self) -> bool {
+        match self {
+            Object::List(_) => true,
+            _ => false,
+        }
+    }
+}
+
+impl NumberInterface for Object {
+    fn add(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => return state.push(I32(a + b)),
+            (Extension(a), _) => {
+                if let Some(a) = a.as_number() {
+                    state.push(other)?;
+                    return a.add(state);
+                }
+            }
+            (_, _) => {}
+        }
+        Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
+    }
+}
+
+impl CallableInterface for Object {
+    fn get_stack_effect(&self) -> &StackEffect {
+        match self {
+            Object::Word(id) => id.word.inner().get_stack_effect(),
+            Object::Function(f) => f.get_stack_effect(),
+            _ => panic!("{:?} is not callable", self),
+        }
+    }
+
+    fn call(&self, state: &mut State) -> Result<()> {
+        match self {
+            Object::Word(id) => id.word.inner().call(state),
+            Object::Function(f) => f.call(state),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
+        }
+    }
+
+    fn is_pure(&self) -> bool {
+        match self {
+            Object::Word(id) => id.word.inner().is_pure(),
+            Object::Function(f) => f.is_pure(),
+            _ => panic!("{:?} is not callable", self),
+        }
+    }
+}
+
+impl SequenceInterface for Object {
+    fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
+        match self {
+            Object::List(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
+        }
+    }
+
+    fn as_slice(&self) -> Result<&[Object]> {
+        match self {
+            Object::List(vec) => Ok(&vec),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
 }

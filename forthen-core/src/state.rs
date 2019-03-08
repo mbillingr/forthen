@@ -9,7 +9,7 @@ use crate::objects::{callable::Callable, prelude::*};
 use crate::parsing::tokenize;
 use crate::scope::CompilerScope;
 use crate::stack_effect::{IntoStackEffect, StackEffect};
-use crate::vm::{Opcode, ByteCode};
+use crate::vm::{ByteCode, Opcode};
 
 #[derive(Debug)]
 pub struct State {
@@ -51,14 +51,14 @@ impl State {
         let quot = self.pop()?.try_into_rc_quotation()?;
         quot.run(self)
     }
-
-    pub fn run_sequence(&mut self, ops: &[Object]) -> Result<()> {
-        for op in ops {
-            op.clone().invoke(self)?;
+    /*
+        pub fn run_sequence(&mut self, ops: &[Object]) -> Result<()> {
+            for op in ops {
+                op.call(self)?;
+            }
+            Ok(())
         }
-        Ok(())
-    }
-
+    */
     pub fn next_token(&mut self) -> Option<String> {
         self.input_tokens.pop_front()
     }
@@ -92,7 +92,7 @@ impl State {
                     let op = Opcode::call_word(entry.clone());
                     self.top_mut()?.try_as_quotation_mut()?.ops.push(op);
                 }
-                Word::ParsingWord(obj) => obj.clone().invoke(self)?,
+                Word::ParsingWord(obj) => obj.clone().call(self)?,
             },
         }
         Ok(())
@@ -115,7 +115,7 @@ impl State {
                     func,
                     stack_effect.into_stack_effect(),
                 ))),
-                source: None
+                source: None,
             },
         );
     }
@@ -136,7 +136,7 @@ impl State {
                     func,
                     StackEffect::new_mod("acc"),
                 ))),
-                source: None
+                source: None,
             },
         );
     }
@@ -161,7 +161,9 @@ impl State {
             Entry {
                 name,
                 source: Some(quot.clone()),
-                word: Word::Word(Object::Function(self.compile(quot, stack_effect.into_stack_effect())))
+                word: Word::Word(Object::Function(
+                    self.compile(quot, stack_effect.into_stack_effect()),
+                )),
             },
         );
     }
@@ -176,7 +178,9 @@ impl State {
             Entry {
                 name,
                 source: Some(quot.clone()),
-                word: Word::ParsingWord(Object::Function(self.compile(quot, StackEffect::new_mod("acc"))))
+                word: Word::ParsingWord(Object::Function(
+                    self.compile(quot, StackEffect::new_mod("acc")),
+                )),
             },
         );
     }
@@ -191,7 +195,12 @@ impl State {
                         None => format!("<{:?}>", ca),
                         Some(ref byte_code) => format!("{}", byte_code),
                     };
-                    println!("{:>20}   {:50}   {}", entry.name, format!("({})", ca.get_stack_effect()), func)
+                    println!(
+                        "{:>20}   {:50}   {}",
+                        entry.name,
+                        format!("({})", ca.get_stack_effect()),
+                        func
+                    )
                 }
                 _ => println!("{:>20}  invalid word", name),
             },
@@ -210,8 +219,8 @@ impl State {
         self.stack.clear();
     }
 
-    pub fn push(&mut self, obj: Object) -> Result<()> {
-        self.stack.push(obj);
+    pub fn push<T: Into<Object>>(&mut self, val: T) -> Result<()> {
+        self.stack.push(val.into());
         Ok(())
     }
 
@@ -226,7 +235,12 @@ impl State {
     }
 
     pub fn push_str(&mut self, s: &str) -> Result<()> {
-        let obj = self.factory.get_string(s).into();
+        let obj = self.factory.get_string(s);
+        self.push(obj)
+    }
+
+    pub fn push_string(&mut self, s: String) -> Result<()> {
+        let obj = self.factory.get_string(s);
         self.push(obj)
     }
 
@@ -238,7 +252,7 @@ impl State {
         self.pop()?.try_into_i32()
     }
 
-    pub fn pop_str(&mut self) -> Result<String> {
+    pub fn pop_string(&mut self) -> Result<String> {
         let obj = self.pop()?;
         let rcs = obj.into();
         match Rc::try_unwrap(rcs) {
@@ -248,10 +262,8 @@ impl State {
     }
 
     pub fn begin_compile(&mut self) {
-        self.push(Object::ByteCode(
-            Rc::new(ByteCode::new())
-        ))
-        .unwrap();
+        self.push(Object::ByteCode(Rc::new(ByteCode::new())))
+            .unwrap();
     }
 
     pub fn dup(&mut self) -> Result<()> {

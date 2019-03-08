@@ -1,4 +1,5 @@
 use forthen_core::errors::Result;
+use forthen_core::objects::prelude::*;
 use forthen_core::State;
 
 /// Load basic operations into the dictionary
@@ -7,8 +8,7 @@ pub fn ops(state: &mut State) -> Result<()> {
 
     state.add_native_word("+", "( a b -- sum )", |state| {
         let b = state.pop()?;
-        let a = state.pop()?;
-        state.push((a + b)?)
+        b.add(state)
     });
 
     state.add_native_word("-", "( a b -- diff )", |state| {

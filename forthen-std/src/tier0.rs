@@ -1,9 +1,10 @@
 use forthen_core::errors::*;
+use forthen_core::objects::prelude::*;
 use forthen_core::CompilerScope;
 use forthen_core::Object;
 use forthen_core::StackEffect;
 use forthen_core::State;
-use forthen_core::{Opcode, ByteCode};
+use forthen_core::{ByteCode, Opcode};
 use std::rc::Rc;
 
 /// Load language tier 0 into the dictionary
@@ -43,7 +44,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let mut se = StackEffect::new();
         for op in &quot.ops {
-            se = se.chain(&op.stack_effect()?)?;
+            se = se.chain(&op.stack_effect())?;
         }
 
         state.add_compound_word(name, se, quot);
@@ -61,7 +62,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let mut se = StackEffect::new();
         for op in &quot.ops {
-            se = se.chain(&op.stack_effect()?)?;
+            se = se.chain(&op.stack_effect())?;
         }
 
         let obj = Object::Function(state.compile(quot, se));
@@ -159,7 +160,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let mut se = StackEffect::new();
         for op in &quot.ops {
-            se = se.chain(&op.stack_effect()?)?;
+            se = se.chain(&op.stack_effect())?;
         }
 
         state.add_compound_word(name, se, Rc::new(quot));
@@ -168,7 +169,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
     state.add_native_word("call", "(..a func(..a -- ..b) -- ..b)", |state| {
         let func = state.pop()?;
-        func.invoke(state)
+        func.call(state)
     });
 
     state.add_native_word(
@@ -179,9 +180,9 @@ pub fn tier0(state: &mut State) -> Result<()> {
             let if_branch = state.pop()?;
             let cond = state.pop()?.try_into_bool()?;
             if cond {
-                if_branch.invoke(state)
+                if_branch.call(state)
             } else {
-                else_branch.invoke(state)
+                else_branch.call(state)
             }
         },
     );
@@ -268,9 +269,9 @@ mod tests {
         state.assert_pop(56);
 
         state.run("\"a\" \"b\" \"c\" rot").unwrap();
-        assert_eq!(state.pop_str().unwrap(), "a");
-        assert_eq!(state.pop_str().unwrap(), "c");
-        assert_eq!(state.pop_str().unwrap(), "b");
+        assert_eq!(state.pop_string().unwrap(), "a");
+        assert_eq!(state.pop_string().unwrap(), "c");
+        assert_eq!(state.pop_string().unwrap(), "b");
 
         state.run("0 drop").unwrap();
         state.assert_pop(123);
@@ -313,22 +314,22 @@ mod tests {
         state.run("123").unwrap(); // push sentinel value on stack
 
         state.run("false [ \"yes\" ] [ \"no\" ] if").unwrap();
-        assert_eq!(state.pop_str().unwrap(), "no");
+        assert_eq!(state.pop_string().unwrap(), "no");
 
         state.run("true [ \"yes\" ] [ \"no\" ] if").unwrap();
-        assert_eq!(state.pop_str().unwrap(), "yes");
+        assert_eq!(state.pop_string().unwrap(), "yes");
 
         state
             .run(": yes-or-no [ \"yes\" dup ] [ \"no\" \"no\" ] if ;")
             .unwrap();
 
         state.run("false yes-or-no").unwrap();
-        assert_eq!(state.pop_str().unwrap(), "no");
-        assert_eq!(state.pop_str().unwrap(), "no");
+        assert_eq!(state.pop_string().unwrap(), "no");
+        assert_eq!(state.pop_string().unwrap(), "no");
 
         state.run("true yes-or-no").unwrap();
-        assert_eq!(state.pop_str().unwrap(), "yes");
-        assert_eq!(state.pop_str().unwrap(), "yes");
+        assert_eq!(state.pop_string().unwrap(), "yes");
+        assert_eq!(state.pop_string().unwrap(), "yes");
 
         state.assert_pop(123);
     }

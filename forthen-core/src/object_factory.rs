@@ -48,7 +48,13 @@ impl StringManager<&str> for ObjectFactory {
 
 impl StringManager<String> for ObjectFactory {
     fn get_string(&mut self, s: String) -> Rc<String> {
-        self.get_string(s.as_str())
+        if let Some(rcs) = self.strings.get(s.as_str()) {
+            rcs.clone().into()
+        } else {
+            let rcs = Rc::new(s);
+            self.strings.insert(rcs.clone().into());
+            rcs
+        }
     }
 }
 

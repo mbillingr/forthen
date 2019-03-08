@@ -1,6 +1,6 @@
 use crate::dictionary::WordId;
 use crate::errors::Result;
-use crate::objects::Object;
+use crate::objects::{prelude::*, Object};
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 
@@ -20,12 +20,11 @@ impl Opcode {
         Opcode::Call(Object::Word(id))
     }
 
-    pub fn stack_effect(&self) -> Result<StackEffect> {
+    pub fn stack_effect(&self) -> StackEffect {
         use Opcode::*;
         match self {
-            //Push(Object::Quotation(_, se)) => Ok(StackEffect::new_quotation("f", se.clone())),
-            Push(_) => Ok(StackEffect::new_pushing("x")),
-            Call(obj) => obj.get_stack_effect(),
+            Push(_) => StackEffect::new_pushing("x"),
+            Call(obj) => obj.get_stack_effect().clone(),
             TailRecurse => unimplemented!(),
         }
     }
@@ -57,7 +56,7 @@ impl ByteCode {
             for op in &self.ops {
                 match op {
                     Push(obj) => state.push(obj.clone())?,
-                    Call(obj) => obj.invoke(state)?,
+                    Call(obj) => obj.call(state)?,
                     TailRecurse => continue 'outer,
                 }
             }
