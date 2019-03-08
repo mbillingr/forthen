@@ -14,7 +14,7 @@ pub trait ObjectInterface {
         state.push_string(self.repr_sys())
     }
 
-    fn cmp_equal(&self, _state: &mut State) -> Result<()>;
+    fn cmp_equal(&self, _state: &mut State) -> Result<()> { Err(ErrorKind::TypeError(format!("cmp_equal not implemented for {:?}", self.repr_sys())).into()) }
 
     fn is_number(&self) -> bool { false }
     fn is_callable(&self) -> bool {

@@ -18,5 +18,7 @@ error_chain! {
         // type system errors
         TypeError(t: String)
         OwnershipError
+
+        AttributeError(t: String)
     }
 }

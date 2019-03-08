@@ -7,6 +7,7 @@ use crate::state::State;
 use crate::vm::ByteCode;
 use std::any::Any;
 use std::rc::Rc;
+use super::dynobj::DynamicObject;
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -20,6 +21,8 @@ pub enum Object {
     Function(Callable),
     List(Rc<Vec<Object>>),
     String(Rc<String>),
+
+    Dynamic(DynamicObject),
 
     Extension(Rc<ObjectInterface>),
 }
@@ -213,12 +216,14 @@ impl ObjectInterface for Object {
             Object::List(list) => format!("{:?}", list),
             Object::String(rcs) => format!("{:?}", rcs),
             Object::I32(i) => format!("{:?}", i),
+            Object::Dynamic(dynobj) => dynobj.repr_sys(),
             Object::Extension(dynobj) => dynobj.repr_sys(),
         }
     }
 
     fn repr(&self, state: &mut State) -> Result<()> {
         match self {
+            Object::Dynamic(dynobj) => dynobj.repr(state),
             Object::Extension(dynobj) => dynobj.repr(state),
             _ => state.push_string(self.repr_sys()),
         }
@@ -234,6 +239,10 @@ impl ObjectInterface for Object {
             (List(_a), List(_b)) => unimplemented!(),
             (String(a), String(b)) => a == b,
             (I32(a), I32(b)) => a == b,
+            (Dynamic(a), _) => {
+                state.push(other)?;
+                return a.cmp_equal(state);
+            }
             (Extension(a), _) => {
                 state.push(other)?;
                 return a.cmp_equal(state);
@@ -247,6 +256,7 @@ impl ObjectInterface for Object {
     fn is_number(&self) -> bool {
         match self {
             Object::I32(_) => true,
+            Object::Dynamic(dynobj) => dynobj.is_number(),
             _ => false,
         }
     }
@@ -254,6 +264,7 @@ impl ObjectInterface for Object {
     fn is_callable(&self) -> bool {
         match self {
             Object::Word(_) | Object::Function(_) => true,
+            Object::Dynamic(dynobj) => dynobj.is_callable(),
             _ => false,
         }
     }
@@ -261,6 +272,7 @@ impl ObjectInterface for Object {
     fn is_sequence(&self) -> bool {
         match self {
             Object::List(_) => true,
+            Object::Dynamic(dynobj) => dynobj.is_sequence(),
             _ => false,
         }
     }
@@ -269,6 +281,7 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
             Object::Function(f) => Ok(f.get_stack_effect()),
+            Object::Dynamic(dynobj) => dynobj.get_stack_effect(),
             _ => panic!("{:?} is not callable", self),
         }
     }
@@ -277,6 +290,7 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().call(state),
             Object::Function(f) => f.call(state),
+            Object::Dynamic(dynobj) => dynobj.call(state),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
@@ -285,6 +299,7 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().is_pure(),
             Object::Function(f) => f.is_pure(),
+            Object::Dynamic(dynobj) => dynobj.is_pure(),
             _ => panic!("{:?} is not callable", self),
         }
     }
@@ -292,6 +307,7 @@ impl ObjectInterface for Object {
     fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
         match self {
             Object::List(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
+            Object::Dynamic(dynobj) => dynobj.as_vec_mut(),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
@@ -299,6 +315,7 @@ impl ObjectInterface for Object {
     fn as_slice(&self) -> Result<&[Object]> {
         match self {
             Object::List(vec) => Ok(&vec),
+            Object::Dynamic(dynobj) => dynobj.as_slice(),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
@@ -309,6 +326,10 @@ impl ObjectInterface for Object {
         match (self, &other) {
             (I32(a), I32(b)) => return state.push(I32(a + b)),
             (Extension(a), _) => {
+                state.push(other)?;
+                return a.add(state);
+            }
+            (Dynamic(a), _) => {
                 state.push(other)?;
                 return a.add(state);
             }
