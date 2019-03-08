@@ -4,7 +4,7 @@ extern crate error_chain;
 mod abstract_stack;
 mod dictionary;
 pub mod errors;
-mod object_factory;
+pub mod object_factory;
 pub mod objects;
 mod parsing;
 mod rcstring;
@@ -17,7 +17,7 @@ mod vm;
 pub use errors::{Error, Result};
 pub use objects::prelude::*;
 pub use scope::CompilerScope;
-pub use stack_effect::StackEffect;
+pub use stack_effect::{IntoStackEffect, StackEffect};
 pub use state::State;
 pub use vm::{ByteCode, Opcode};
 

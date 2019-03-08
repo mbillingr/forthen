@@ -1,12 +1,12 @@
 use crate::errors::Result;
+use crate::errors::*;
+use crate::rcstring::RcString;
 use crate::Object;
+use crate::ObjectInterface;
 use crate::StackEffect;
 use crate::State;
-use crate::ObjectInterface;
-use std::collections::HashMap;
 use std::any::Any;
-use crate::rcstring::RcString;
-use crate::errors::*;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub type DynamicObject = Rc<DynamicObjectImpl>;
@@ -17,9 +17,9 @@ pub struct DynamicObjectImpl {
 }
 
 impl DynamicObjectImpl {
-    fn new() -> Self {
+    pub fn new() -> Self {
         DynamicObjectImpl {
-            attributes: HashMap::new()
+            attributes: HashMap::new(),
         }
     }
 }
@@ -36,9 +36,13 @@ fn invoke_method(this: &DynamicObject, name: &str, state: &mut State) -> Result<
 }
 
 impl ObjectInterface for DynamicObject {
-    fn as_any(&self) -> &dyn Any {self}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
-    fn repr_sys(&self) -> String { format!("DynamicObject at {:p}", self) }
+    fn repr_sys(&self) -> String {
+        format!("DynamicObject at {:p}", self)
+    }
 
     fn repr(&self, state: &mut State) -> Result<()> {
         invoke_method(self, "__repr__", state).or_else(|_| state.push_string(self.repr_sys()))
@@ -60,11 +64,52 @@ impl ObjectInterface for DynamicObject {
     }
 
     // todo
-    fn is_pure(&self) -> bool { false }
+    fn is_pure(&self) -> bool {
+        false
+    }
 
     // todo
-    fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> { Err(ErrorKind::TypeError(format!("as_vec_mut not implemented for {:?}", self.repr_sys())).into()) }
-    fn as_slice(&self) -> Result<&[Object]> { Err(ErrorKind::TypeError(format!("as_slice not implemented for {:?}", self.repr_sys())).into()) }
+    fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
+        Err(ErrorKind::TypeError(format!(
+            "as_vec_mut not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
+    fn as_slice(&self) -> Result<&[Object]> {
+        Err(ErrorKind::TypeError(format!(
+            "as_slice not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
+
+    fn set_attr(&mut self, attr: Rc<String>, value: Object) {
+        Rc::get_mut(self)
+            .ok_or(ErrorKind::OwnershipError)
+            .unwrap()
+            .attributes
+            .insert(attr.into(), value);
+    }
+
+    fn get_attr(&self, attr: &str) -> Option<Object> {
+        self.attributes.get(attr).cloned()
+    }
+
+    fn set_attribute(&mut self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "get/set attribute not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
+    fn get_attribute(&mut self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "get/set attribute not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
 
     fn add(&self, state: &mut State) -> Result<()> {
         invoke_method(self, "__add__", state)

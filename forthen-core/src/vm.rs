@@ -1,6 +1,6 @@
 use crate::dictionary::WordId;
 use crate::errors::Result;
-use crate::objects::{prelude::*, Object};
+use crate::objects::{callable::Callable, prelude::*, Object};
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 
@@ -8,6 +8,7 @@ use crate::state::State;
 pub enum Opcode {
     Push(Object),
     Call(Object),
+    CallDirect(Callable),
     TailRecurse,
 }
 
@@ -20,11 +21,16 @@ impl Opcode {
         Opcode::Call(Object::Word(id))
     }
 
+    pub fn call_direct(ca: Callable) -> Self {
+        Opcode::CallDirect(ca)
+    }
+
     pub fn stack_effect(&self) -> StackEffect {
         use Opcode::*;
         match self {
             Push(_) => StackEffect::new_pushing("x"),
             Call(obj) => obj.get_stack_effect().unwrap().clone(),
+            CallDirect(ca) => ca.get_stack_effect().clone(),
             TailRecurse => unimplemented!(),
         }
     }
@@ -35,6 +41,7 @@ impl std::fmt::Display for Opcode {
         match self {
             Opcode::Push(obj) => write!(f, "{:?}", obj),
             Opcode::Call(obj) => write!(f, "{:?}", obj),
+            Opcode::CallDirect(ca) => write!(f, "@<{:?}>", ca),
             Opcode::TailRecurse => write!(f, "<tail recurse>"),
         }
     }
@@ -57,6 +64,7 @@ impl ByteCode {
                 match op {
                     Push(obj) => state.push(obj.clone())?,
                     Call(obj) => obj.call(state)?,
+                    CallDirect(ca) => ca.call(state)?,
                     TailRecurse => continue 'outer,
                 }
             }

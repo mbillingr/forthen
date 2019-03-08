@@ -1,9 +1,11 @@
 pub use super::Object;
+use crate::errors::*;
+use crate::rcstring::RcString;
 use crate::Result;
 use crate::StackEffect;
 use crate::State;
 use std::any::Any;
-use crate::errors::*;
+use std::rc::Rc;
 
 pub trait ObjectInterface {
     fn as_any(&self) -> &dyn Any;
@@ -14,9 +16,17 @@ pub trait ObjectInterface {
         state.push_string(self.repr_sys())
     }
 
-    fn cmp_equal(&self, _state: &mut State) -> Result<()> { Err(ErrorKind::TypeError(format!("cmp_equal not implemented for {:?}", self.repr_sys())).into()) }
+    fn cmp_equal(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "cmp_equal not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
 
-    fn is_number(&self) -> bool { false }
+    fn is_number(&self) -> bool {
+        false
+    }
     fn is_callable(&self) -> bool {
         false
     }
@@ -24,12 +34,57 @@ pub trait ObjectInterface {
         false
     }
 
-    fn get_stack_effect(&self) -> Result<&StackEffect> { Err(ErrorKind::TypeError(format!("{:?} does not have stack effects", self.repr_sys())).into()) }
-    fn call(&self, _state: &mut State) -> Result<()> { Err(ErrorKind::TypeError(format!("{:?} is not callable", self.repr_sys())).into()) }
-    fn is_pure(&self) -> bool { false }
+    fn get_stack_effect(&self) -> Result<&StackEffect> {
+        Err(
+            ErrorKind::TypeError(format!("{:?} does not have stack effects", self.repr_sys()))
+                .into(),
+        )
+    }
+    fn call(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!("{:?} is not callable", self.repr_sys())).into())
+    }
+    fn is_pure(&self) -> bool {
+        false
+    }
 
-    fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> { Err(ErrorKind::TypeError(format!("as_vec_mut not implemented for {:?}", self.repr_sys())).into()) }
-    fn as_slice(&self) -> Result<&[Object]> { Err(ErrorKind::TypeError(format!("as_slice not implemented for {:?}", self.repr_sys())).into()) }
+    fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
+        Err(ErrorKind::TypeError(format!(
+            "as_vec_mut not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
+    fn as_slice(&self) -> Result<&[Object]> {
+        Err(ErrorKind::TypeError(format!(
+            "as_slice not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
 
-    fn add(&self, _state: &mut State) -> Result<()> { Err(ErrorKind::TypeError(format!("add not implemented for {:?}", self.repr_sys())).into()) }
+    fn set_attr(&mut self, attr: Rc<String>, value: Object) {
+        panic!("set attribute not implemented for {:?}", self.repr_sys())
+    }
+    fn get_attr(&self, attr: &str) -> Option<Object> {
+        None
+    }
+
+    fn set_attribute(&mut self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "get/set attribute not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
+    fn get_attribute(&mut self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "get/set attribute not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
+
+    fn add(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!("add not implemented for {:?}", self.repr_sys())).into())
+    }
 }

@@ -228,6 +228,12 @@ impl State {
         self.stack.pop().ok_or(ErrorKind::StackUnderflow.into())
     }
 
+    pub fn top(&mut self) -> Result<&Object> {
+        self.stack
+            .last()
+            .ok_or(ErrorKind::StackUnderflow.into())
+    }
+
     pub fn top_mut(&mut self) -> Result<&mut Object> {
         self.stack
             .last_mut()

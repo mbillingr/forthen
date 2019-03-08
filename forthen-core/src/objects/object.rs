@@ -1,4 +1,5 @@
 use super::callable::Callable;
+use super::dynobj::DynamicObject;
 use super::prelude::*;
 use crate::dictionary::WordId;
 use crate::errors::*;
@@ -7,7 +8,6 @@ use crate::state::State;
 use crate::vm::ByteCode;
 use std::any::Any;
 use std::rc::Rc;
-use super::dynobj::DynamicObject;
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -317,6 +317,33 @@ impl ObjectInterface for Object {
             Object::List(vec) => Ok(&vec),
             Object::Dynamic(dynobj) => dynobj.as_slice(),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
+        }
+    }
+
+    fn set_attr(&mut self, attr: Rc<String>, value: Object) {
+        match self {
+            Object::Dynamic(dynobj) => dynobj.set_attr(attr, value),
+            _ => panic!("set attribute not implemented for {:?}", self),
+        }
+    }
+
+    fn get_attr(&self, attr: &str) -> Option<Object> {
+        match self {
+            Object::Dynamic(dynobj) => dynobj.get_attr(attr),
+            _ => None,
+        }
+    }
+
+    fn set_attribute(&mut self, state: &mut State) -> Result<()> {
+        match self {
+            Object::Dynamic(dynobj) => dynobj.set_attribute(state),
+            _ => Err(ErrorKind::TypeError(format!("get/set attribute not implemented for {:?}", self)).into()),
+        }
+    }
+    fn get_attribute(&mut self, state: &mut State) -> Result<()> {
+        match self {
+            Object::Dynamic(dynobj) => dynobj.get_attribute(state),
+            _ => Err(ErrorKind::TypeError(format!("get/set attribute not implemented for {:?}", self)).into()),
         }
     }
 

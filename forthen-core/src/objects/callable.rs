@@ -1,7 +1,7 @@
 use crate::errors::Result;
 use crate::Object;
-use crate::StackEffect;
 use crate::State;
+use crate::{IntoStackEffect, StackEffect};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -33,20 +33,26 @@ impl std::fmt::Debug for Callable {
 }
 
 impl Callable {
-    pub fn new_pure(func: Pure, se: StackEffect) -> Self {
-        Callable::Pure(func, Rc::new(se))
+    pub fn new_pure(func: Pure, se: impl IntoStackEffect) -> Self {
+        Callable::Pure(func, Rc::new(se.into_stack_effect()))
     }
 
-    pub fn new_const<F: 'static + Fn(&mut State) -> Result<()>>(func: F, se: StackEffect) -> Self {
-        Callable::Const(Rc::new(WithStackEffect { se, func }))
+    pub fn new_const<F: 'static + Fn(&mut State) -> Result<()>>(
+        func: F,
+        se: impl IntoStackEffect,
+    ) -> Self {
+        Callable::Const(Rc::new(WithStackEffect {
+            se: se.into_stack_effect(),
+            func,
+        }))
     }
 
     pub fn new_mutie<F: 'static + FnMut(&mut State) -> Result<()>>(
         func: F,
-        se: StackEffect,
+        se: impl IntoStackEffect,
     ) -> Self {
         Callable::Mutie(Rc::new(WithStackEffect {
-            se,
+            se: se.into_stack_effect(),
             func: RefCell::new(func),
         }))
     }
