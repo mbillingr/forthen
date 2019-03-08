@@ -41,11 +41,16 @@ impl ObjectInterface for DynamicObject {
     }
 
     fn repr_sys(&self) -> String {
-        format!("DynamicObject at {:p}", self)
+        format!("DynamicObject at {:p}", &**self)
     }
 
     fn repr(&self, state: &mut State) -> Result<()> {
-        invoke_method(self, "__repr__", state).or_else(|_| state.push_string(self.repr_sys()))
+        if let Some(obj) = self.attributes.get("__repr__") {
+            state.push(self.clone())?;
+            obj.call(state)
+        } else {
+            state.push_string(self.repr_sys())
+        }
     }
 
     fn cmp_equal(&self, state: &mut State) -> Result<()> {
