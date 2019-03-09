@@ -90,7 +90,7 @@ pub trait ObjectInterface {
         ))
         .into())
     }
-    fn get_attribute(&mut self, _state: &mut State) -> Result<()> {
+    fn get_attribute(&self, _state: &mut State) -> Result<()> {
         Err(ErrorKind::TypeError(format!(
             "get/set attribute not implemented for {:?}",
             self.repr_sys()

@@ -48,7 +48,7 @@ pub fn class(state: &mut State) -> Result<()> {
         Ok(())
     });
 
-    state.add_native_parse_word("get_attr", |state| {
+    state.add_native_parse_word("get_attr_raw", |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         let name = state.factory.get_string(name);
 
@@ -68,6 +68,35 @@ pub fn class(state: &mut State) -> Result<()> {
         Ok(())
     });
 
+    state.add_native_parse_word("get_attr", |state| {
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        let name = state.factory.get_string(name);
+
+        let get_func = Callable::new_const(
+            move |state| {
+                let this = state.pop()?;
+                state.push(name.clone())?;
+                this.get_attribute(state)?;
+                state.push(this)?;
+                state.swap()
+            },
+            "(obj -- obj val)",
+        );
+
+        let instructions = state.top_mut()?.try_as_quotation_mut()?;
+        instructions.ops.push(Opcode::call_direct(get_func));
+        Ok(())
+    });
+
+    state.add_native_word("get_attribute", "(t s -- t v)", |state| {
+        let attr = state.pop()?;
+        let this = state.pop()?;
+        state.push(attr)?;
+        this.get_attribute(state)?;
+        state.push(this)?;
+        state.swap()
+    });
+
     state.add_native_parse_word("has_attr", |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         let name = state.factory.get_string(name);
@@ -85,6 +114,8 @@ pub fn class(state: &mut State) -> Result<()> {
         Ok(())
     });
 
+    // todo: this version of the Complex word creates a new table each time it is called.
+    //       we need a way to define words that push a copy of the same value to the stack.
     state.run(
         "
         : class {} ;
@@ -98,6 +129,14 @@ pub fn class(state: &mut State) -> Result<()> {
             ] set_attr new
 
             [
+                swap
+                get_metatable
+                rot
+                get_attribute
+                swap drop
+            ] set_attr __index__
+
+            [
                 get_attr real
                 swap
                 get_attr imag
@@ -105,15 +144,11 @@ pub fn class(state: &mut State) -> Result<()> {
             ] set_attr get
 
             [
-                get_attr real
-                swap
-                get_attr imag
-                swap drop
+                get_attr get call
+                rot drop
                 rot
-                get_attr real
-                swap
-                get_attr imag
-                swap drop
+                get_attr get call
+                rot drop
 
                 rot +
                 rot rot +

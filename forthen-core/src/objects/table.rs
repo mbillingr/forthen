@@ -8,6 +8,7 @@ use crate::State;
 use std::any::Any;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::borrow::Borrow;
 
 pub type Table = Rc<TableImpl>;
 
@@ -124,12 +125,23 @@ impl ObjectInterface for Table {
         ))
         .into())
     }
-    fn get_attribute(&mut self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "get/set attribute not implemented for {:?}",
-            self.repr_sys()
-        ))
-        .into())
+
+    fn get_attribute(&self, state: &mut State) -> Result<()> {
+        let attr: RcString = state.pop()?.try_into_rc_string()?.into();
+        if let Some(val) = self.attributes.get(&attr) {
+            state.push(val.clone())
+        } else if let Some(idx) = self.meta_lookup("__index__") {
+            let attr: Rc<String> = attr.into();
+            state.push(self.clone())?;
+            state.push(Object::String(attr))?;
+            idx.call(state)?;
+            state.swap()?;
+            state.pop()?;
+            Ok(())
+        } else {
+            let attr: &str = attr.borrow();
+            Err(ErrorKind::AttributeError(format!("no {} attribute in {:?}", attr, self.repr_sys())).into())
+        }
     }
 
     fn add(&self, state: &mut State) -> Result<()> {

@@ -341,7 +341,6 @@ impl ObjectInterface for Object {
     }
 
     fn get_meta(&mut self) -> Option<Table> {
-        println!("get_meta({:?}", self);
         match self {
             Object::Dynamic(table) => table.get_metatable().cloned(),
             _ => None,
@@ -372,7 +371,7 @@ impl ObjectInterface for Object {
             .into()),
         }
     }
-    fn get_attribute(&mut self, state: &mut State) -> Result<()> {
+    fn get_attribute(&self, state: &mut State) -> Result<()> {
         match self {
             Object::Dynamic(dynobj) => dynobj.get_attribute(state),
             _ => Err(ErrorKind::TypeError(format!(
