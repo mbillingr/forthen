@@ -1,5 +1,5 @@
 use forthen_core::errors::*;
-use forthen_core::objects::{prelude::*};
+use forthen_core::objects::prelude::*;
 use forthen_core::State;
 
 /// Load basic operations into the dictionary

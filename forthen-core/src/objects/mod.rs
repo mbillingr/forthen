@@ -1,6 +1,6 @@
 pub mod callable;
-pub mod dynobj;
 pub mod object;
 pub mod prelude;
+pub mod table;
 
 pub use object::Object;

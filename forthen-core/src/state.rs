@@ -229,9 +229,7 @@ impl State {
     }
 
     pub fn top(&mut self) -> Result<&Object> {
-        self.stack
-            .last()
-            .ok_or(ErrorKind::StackUnderflow.into())
+        self.stack.last().ok_or(ErrorKind::StackUnderflow.into())
     }
 
     pub fn top_mut(&mut self) -> Result<&mut Object> {
@@ -290,6 +288,15 @@ impl State {
         let a = self.pop()?;
         self.push(a.clone())?;
         self.push(b)?;
+        self.push(a)
+    }
+
+    pub fn rot(&mut self) -> Result<()> {
+        let c = self.pop()?;
+        let b = self.pop()?;
+        let a = self.pop()?;
+        self.push(b)?;
+        self.push(c)?;
         self.push(a)
     }
 }

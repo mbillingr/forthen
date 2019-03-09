@@ -9,33 +9,49 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub type DynamicObject = Rc<DynamicObjectImpl>;
+pub type Table = Rc<TableImpl>;
 
 #[derive(Clone)]
-pub struct DynamicObjectImpl {
+pub struct TableImpl {
     attributes: HashMap<RcString, Object>,
+    meta: Option<Table>,
 }
 
-impl DynamicObjectImpl {
+impl TableImpl {
     pub fn new() -> Self {
-        DynamicObjectImpl {
+        TableImpl {
             attributes: HashMap::new(),
+            meta: None,
         }
+    }
+
+    pub fn set_metatable(&mut self, meta: Option<Table>) {
+        self.meta = meta;
+    }
+
+    pub fn get_metatable(&self) -> Option<&Table> {
+        self.meta.as_ref()
+    }
+
+    fn meta_lookup(&self, attr: &str) -> Option<&Object> {
+        self.meta
+            .as_ref()
+            .and_then(|meta| meta.attributes.get(attr))
     }
 }
 
-fn invoke_method(this: &DynamicObject, name: &str, state: &mut State) -> Result<()> {
-    if let Some(obj) = this.attributes.get(name) {
+fn invoke_method(this: &Table, name: &str, state: &mut State) -> Result<()> {
+    if let Some(obj) = this.meta_lookup(name) {
         state.push(this.clone())?;
         obj.call(state)
     } else {
         this.repr(state)?;
-        let r = state.pop_string();
+        let r = state.pop_string().unwrap();
         Err(ErrorKind::AttributeError(format!("no {} method in {:?}", name, r)).into())
     }
 }
 
-impl ObjectInterface for DynamicObject {
+impl ObjectInterface for Table {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -121,8 +137,8 @@ impl ObjectInterface for DynamicObject {
     }
 }
 
-impl From<DynamicObject> for Object {
-    fn from(dob: DynamicObject) -> Self {
+impl From<Table> for Object {
+    fn from(dob: Table) -> Self {
         Object::Dynamic(dob)
     }
 }

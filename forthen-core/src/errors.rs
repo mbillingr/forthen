@@ -5,20 +5,30 @@ error_chain! {
     errors {
         // parsing errors
         EndOfInput
-        UnexpectedDelimiter(t: &'static str)
+        UnexpectedDelimiter(t: &'static str) {
+            display("Unexpected Delimiter: {:?}", t)
+        }
 
         // stack effect errors
         IncompatibleStackEffects
 
         // language errors
-        AmbiguousWord(word: String)
-        UnknownWord(word: String)
+        AmbiguousWord(word: String) {
+            display("Ambiguous Word: {}", word)
+        }
+        UnknownWord(word: String) {
+            display("Unkown Word: {}", word)
+        }
         StackUnderflow
 
         // type system errors
-        TypeError(t: String)
+        TypeError(t: String) {
+            display("Type Error: {}", t)
+        }
         OwnershipError
 
-        AttributeError(t: String)
+        AttributeError(t: String) {
+            display("Attribute Error: {}", t)
+        }
     }
 }

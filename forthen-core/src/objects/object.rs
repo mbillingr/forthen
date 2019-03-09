@@ -1,8 +1,9 @@
 use super::callable::Callable;
-use super::dynobj::DynamicObject;
 use super::prelude::*;
+use super::table::Table;
 use crate::dictionary::WordId;
 use crate::errors::*;
+use crate::objects::table::TableImpl;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 use crate::vm::ByteCode;
@@ -22,7 +23,7 @@ pub enum Object {
     List(Rc<Vec<Object>>),
     String(Rc<String>),
 
-    Dynamic(DynamicObject),
+    Dynamic(Table),
 
     Extension(Rc<ObjectInterface>),
 }
@@ -149,6 +150,10 @@ impl From<Object> for i32 {
 }
 
 impl Object {
+    pub fn new_table() -> Self {
+        Object::Dynamic(Rc::new(TableImpl::new()))
+    }
+
     /// convert into reference counted `Vec`
     pub fn into_rc_vec(self) -> Result<Rc<Vec<Object>>> {
         match self {
@@ -320,6 +325,29 @@ impl ObjectInterface for Object {
         }
     }
 
+    fn set_meta(&mut self, meta: Option<Table>) -> Result<()> {
+        match self {
+            Object::Dynamic(table) => {
+                let t: Result<_> = Rc::get_mut(table).ok_or(ErrorKind::OwnershipError.into());
+                t?.set_metatable(meta);
+                Ok(())
+            }
+            _ => Err(ErrorKind::TypeError(format!(
+                "{:?} can't have a meta table",
+                self.repr_sys()
+            ))
+            .into()),
+        }
+    }
+
+    fn get_meta(&mut self) -> Option<Table> {
+        println!("get_meta({:?}", self);
+        match self {
+            Object::Dynamic(table) => table.get_metatable().cloned(),
+            _ => None,
+        }
+    }
+
     fn set_attr(&mut self, attr: Rc<String>, value: Object) {
         match self {
             Object::Dynamic(dynobj) => dynobj.set_attr(attr, value),
@@ -337,13 +365,21 @@ impl ObjectInterface for Object {
     fn set_attribute(&mut self, state: &mut State) -> Result<()> {
         match self {
             Object::Dynamic(dynobj) => dynobj.set_attribute(state),
-            _ => Err(ErrorKind::TypeError(format!("get/set attribute not implemented for {:?}", self)).into()),
+            _ => Err(ErrorKind::TypeError(format!(
+                "get/set attribute not implemented for {:?}",
+                self
+            ))
+            .into()),
         }
     }
     fn get_attribute(&mut self, state: &mut State) -> Result<()> {
         match self {
             Object::Dynamic(dynobj) => dynobj.get_attribute(state),
-            _ => Err(ErrorKind::TypeError(format!("get/set attribute not implemented for {:?}", self)).into()),
+            _ => Err(ErrorKind::TypeError(format!(
+                "get/set attribute not implemented for {:?}",
+                self
+            ))
+            .into()),
         }
     }
 

@@ -1,5 +1,6 @@
-use forthen_core::State;
-use forthen_std::{complex, ops, tier0, tier1, class};
+use forthen_core::errors::*;
+use forthen_core::{Object, State};
+use forthen_std::{class, complex, ops, tier0, tier1};
 use rustyline::Editor;
 
 fn main() {
@@ -43,29 +44,14 @@ fn main() {
 
     loop {
         println!();
-        let mut total_length = 0;
-        let mut top = vec![];
-        for x in state.stack.iter().rev() {
-            let repr = format!("{:?}", x);
-            total_length += repr.len() + 2;
-            if total_length > 70 {
-                break;
-            }
-            top.push(repr);
-        }
-        top.reverse();
-        if top.len() < state.stack.len() {
-            println!("[.., {}]", top.join(", "));
-        } else {
-            println!("[{}]", top.join(", "));
-        }
+        print_stack(&state.stack, 70);
 
         match rl.readline(">> ") {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 match state.run(&line) {
                     Ok(()) => {}
-                    Err(e) => println!("Error: {}", e),
+                    Err(e) => report_error(e),
                 }
             }
             _ => {
@@ -74,4 +60,30 @@ fn main() {
             }
         }
     }
+}
+
+fn print_stack(stack: &[Object], max_len: usize) {
+    let mut total_length = 0;
+    let mut top = vec![];
+
+    for x in stack.iter().rev() {
+        let repr = format!("{:?}", x);
+        total_length += repr.len() + 2;
+        if total_length > max_len {
+            break;
+        }
+        top.push(repr);
+    }
+
+    top.reverse();
+
+    if top.len() < stack.len() {
+        println!("[.., {}]", top.join(", "));
+    } else {
+        println!("[{}]", top.join(", "));
+    }
+}
+
+fn report_error(e: Error) {
+    eprintln!("{}", e)
 }

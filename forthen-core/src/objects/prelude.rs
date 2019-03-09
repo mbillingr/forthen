@@ -1,6 +1,6 @@
+use super::table::Table;
 pub use super::Object;
 use crate::errors::*;
-use crate::rcstring::RcString;
 use crate::Result;
 use crate::StackEffect;
 use crate::State;
@@ -54,6 +54,7 @@ pub trait ObjectInterface {
         ))
         .into())
     }
+
     fn as_slice(&self) -> Result<&[Object]> {
         Err(ErrorKind::TypeError(format!(
             "as_slice not implemented for {:?}",
@@ -62,10 +63,23 @@ pub trait ObjectInterface {
         .into())
     }
 
-    fn set_attr(&mut self, attr: Rc<String>, value: Object) {
+    fn set_meta(&mut self, _meta: Option<Table>) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "get/set metatable not implemented for {:?}",
+            self.repr_sys()
+        ))
+        .into())
+    }
+
+    fn get_meta(&mut self) -> Option<Table> {
+        None
+    }
+
+    fn set_attr(&mut self, _attr: Rc<String>, _value: Object) {
         panic!("set attribute not implemented for {:?}", self.repr_sys())
     }
-    fn get_attr(&self, attr: &str) -> Option<Object> {
+
+    fn get_attr(&self, _attr: &str) -> Option<Object> {
         None
     }
 
