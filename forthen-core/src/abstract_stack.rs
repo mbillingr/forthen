@@ -80,8 +80,15 @@ impl StackItem {
             StackItem::Row(_) => {}
             StackItem::Item(_) => {}
             StackItem::Quotation(_, inps, outs) => {
+                // todo: recursive definitions
+
+                // this causes an error with recursion
                 inps.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b)?;
                 outs.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b)?;
+
+                // and this causes a stack overflow...
+                //if let Ok(mut i) = inps.try_borrow_mut() { i.substitute(a, b)?; }
+                //if let Ok(mut o) = outs.try_borrow_mut() { o.substitute(a, b)?; }
             }
         }
         Ok(())
