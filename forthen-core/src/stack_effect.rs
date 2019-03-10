@@ -200,6 +200,7 @@ fn compare_sequence<'a>(
     pos_a: &mut HashMap<&'a str, usize>,
     pos_b: &mut HashMap<&'a str, usize>,
 ) -> bool {
+    if seq_a.len() != seq_b.len() { return false }
     for (a, b) in seq_a.iter().zip(seq_b) {
         let n = pos_a.len();
         let m = pos_b.len();
@@ -230,7 +231,9 @@ fn compare_effects(
 
 impl std::cmp::PartialEq for StackEffect {
     fn eq(&self, other: &Self) -> bool {
-        compare_effects(&self.inputs, &self.outputs, &other.inputs, &other.outputs)
+        let a = self.simplified();
+        let b = other.simplified();
+        compare_effects(&a.inputs, &a.outputs, &b.inputs, &b.outputs)
     }
 }
 
@@ -496,7 +499,6 @@ mod tests {
             StackEffect::parse("(x y -- y x)").unwrap(),
             StackEffect::parse("(a b -- b a)").unwrap()
         );
-
         assert_ne!(
             StackEffect::parse("(a b -- a a)").unwrap(),
             StackEffect::parse("(a b -- b b)").unwrap()
@@ -505,7 +507,6 @@ mod tests {
             StackEffect::parse("(a b -- c)").unwrap(),
             StackEffect::parse("(b a -- z)").unwrap()
         );
-
         assert_eq!(
             StackEffect::parse("( -- a b)").unwrap(),
             StackEffect::parse("( -- b a)").unwrap()
@@ -513,6 +514,10 @@ mod tests {
         assert_eq!(
             StackEffect::parse("(b -- a b b c)").unwrap(),
             StackEffect::parse("(b -- c b b a)").unwrap()
+        );
+        assert_ne!(
+            StackEffect::parse("(a b -- b a b a)").unwrap(),
+            StackEffect::parse("(x -- y)").unwrap()
         );
     }
 
@@ -656,7 +661,6 @@ mod tests {
         let yes = "(..d -- ..d f(..c -- ..c x))".into_stack_effect();
         let no = "(..d -- ..d f(..c -- ..c x))".into_stack_effect();
 
-        println!("{}", yes.chain(&no).unwrap().chain(&sfx).unwrap());
         assert_eq!(
             yes.chain(&no).unwrap().chain(&sfx).unwrap(),
             "(cond -- value)".into_stack_effect()
