@@ -403,8 +403,10 @@ impl ObjectInterface for Object {
             }
             _ => Err(ErrorKind::TypeError(format!(
                 "is_eq not implemented for {:?} and {:?}",
-                self.repr_sys(), other
-            )).into()),
+                self.repr_sys(),
+                other
+            ))
+            .into()),
         }
     }
 
@@ -423,8 +425,10 @@ impl ObjectInterface for Object {
             }
             _ => Err(ErrorKind::TypeError(format!(
                 "is_gt not implemented for {:?} and {:?}",
-                self.repr_sys(), other
-            )).into()),
+                self.repr_sys(),
+                other
+            ))
+            .into()),
         }
     }
 
@@ -443,8 +447,10 @@ impl ObjectInterface for Object {
             }
             _ => Err(ErrorKind::TypeError(format!(
                 "is_lt not implemented for {:?} and {:?}",
-                self.repr_sys(), other
-            )).into()),
+                self.repr_sys(),
+                other
+            ))
+            .into()),
         }
     }
 
@@ -463,8 +469,10 @@ impl ObjectInterface for Object {
             }
             _ => Err(ErrorKind::TypeError(format!(
                 "is_ge not implemented for {:?} and {:?}",
-                self.repr_sys(), other
-            )).into()),
+                self.repr_sys(),
+                other
+            ))
+            .into()),
         }
     }
 
@@ -483,8 +491,10 @@ impl ObjectInterface for Object {
             }
             _ => Err(ErrorKind::TypeError(format!(
                 "is_le not implemented for {:?} and {:?}",
-                self.repr_sys(), other
-            )).into()),
+                self.repr_sys(),
+                other
+            ))
+            .into()),
         }
     }
 
