@@ -7,6 +7,7 @@ use forthen_core::StackEffect;
 use forthen_core::State;
 use forthen_core::{ByteCode, Opcode};
 use std::rc::Rc;
+use forthen_core::objects::callable::Callable;
 
 /// Load language tier 0 into the dictionary
 ///
@@ -23,7 +24,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
     });
 
     state.add_native_parse_word("SYNTAX:", |state| {
-        let name = state.next_token().expect("word name");
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         state.begin_compile();
 
         if let Err(e) = state.parse_until(";") {
@@ -36,10 +37,27 @@ pub fn tier0(state: &mut State) -> Result<()> {
         Ok(())
     });
 
+    state.add_native_parse_word("LET:", |state| {
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+
+        let quot = state.top_mut()?.try_as_quotation_mut()?;
+
+        let action = Callable::new_const(move |state|{
+            let value = state.pop()?;
+            state.add_native_word(name.clone(), "( -- x)", move |state|{
+                state.push(value.clone())
+            });
+            Ok(())
+        }, "( -- )");
+
+        quot.ops.push(Opcode::CallDirect(action));
+        Ok(())
+    });
+
     state.add_native_parse_word(":", |state| {
         // todo: parse stack effect from word definition and compare against derived stack effect?
 
-        let name = state.next_token().expect("word name");
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
         state.begin_compile();
 
