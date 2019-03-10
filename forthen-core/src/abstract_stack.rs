@@ -301,8 +301,11 @@ impl Substitutions {
                     other_b.substitute(&a, &b);
                 }
 
-                self.subs.insert(a.clone(), b.clone());
-                subs.push((a, b.clone()));
+                if b.len() == 1 && a == b.values[0] {
+                } else {
+                    self.subs.insert(a.clone(), b.clone());
+                    subs.push((a, b.clone()));
+                }
             } else {
                 for (a0, b0) in a.match_effects(&b) {
                     subs.extend(self.add_sequence(a0, b0)?);
@@ -310,7 +313,49 @@ impl Substitutions {
             }
         }
 
-        Ok(subs)
+        if self.has_cycle() {
+            Err(ErrorKind::IncompatibleStackEffects.into())
+        } else {
+            Ok(subs)
+        }
+    }
+
+    fn has_cycle(&self) -> bool {
+        let mut visited: HashMap<_, bool> = self.subs.keys().map(|k| (k, false)).collect();
+
+        let mut queue: Vec<_> = self.subs.keys().collect();
+        let mut stack = vec![];
+
+        while let Some(node) = queue.pop() {
+            if stack.contains(&node) {
+                return true
+            }
+            match visited.get_mut(node) {
+                Some(true) => {
+                    stack.pop();
+                    continue
+                },
+                Some(v) => *v = true,
+                None => unreachable!(),
+            }
+            stack.push(node);
+
+            let mut added = false;
+            for child in &self.subs[node].values {
+                if child == node {
+                    // self-substitution is ok
+                    continue
+                }
+                if self.subs.contains_key(child) {
+                    queue.push(child);
+                    added = true;
+                }
+            }
+            if !added {
+                stack.pop();
+            }
+        }
+        false
     }
 }
 
@@ -324,11 +369,13 @@ pub struct AbstractStack {
 impl AbstractStack {
     pub fn new() -> Self {
         let r = [StackItem::anonymous_row()];
-        AbstractStack {
+        let astack = AbstractStack {
             inputs: Sequence::from_iter(&r),
             outputs: Sequence::from_iter(&r),
             subs: Substitutions::new(),
-        }
+        };
+
+        astack
     }
 
     pub fn pop<T: Into<Sequence>>(&mut self, x: T) -> Result<Sequence> {
@@ -652,6 +699,49 @@ mod tests {
 
         } else {
             panic!("Expected Error")
+        }
+    }
+
+    #[test]
+    fn invalid_chaining2() {
+        let mut astack = AbstractStack::new();
+
+        // [ put ] (-- f(..a -- ..a x))
+        let a = StackItem::row("a");
+        astack.push(StackItem::quot(
+            "f",
+            &[a.clone()],
+            &[a, StackItem::item("x")],
+        ));
+
+        // [ drop ] (-- g(..b y -- ..b))
+        let b = StackItem::row("b");
+        astack.push(StackItem::quot(
+            "g",
+            &[b.clone(), StackItem::item("y")],
+            &[b],
+        ));
+
+        // IF (..c ? h(..c -- ..d) i(..c -- ..d) -- ..d)
+        let c = StackItem::row("c");
+        let d = StackItem::row("d");
+        let h = StackItem::quot(
+            "h",
+            &[c.clone()],
+            &[d.clone()],
+        );
+        let i = StackItem::quot(
+            "i",
+            &[c.clone()],
+            &[d.clone()],
+        );
+        match astack.pop(i) {
+            Ok(_) => {}
+            Err(e) => panic!("Expected Result {:?}", e),
+        }
+        match astack.pop(h) {
+            Ok(_) => panic!("Expected Error"),
+            Err(_) => {}
         }
     }
 }

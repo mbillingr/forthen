@@ -83,13 +83,9 @@ impl StackEffect {
     pub fn chain(&self, rhs: &Self) -> Result<Self> {
         let (a, b) = rename_effects(self, rhs);
 
-        //println!("({}) ({})", a, b);
-
         let mut astack = AbstractStack::new();
         astack.apply_effect(&a)?;
         astack.apply_effect(&b)?;
-
-        //println!("    ->  {:?}", astack);
 
         Ok(StackEffect {
             inputs: astack.inputs.into(),
@@ -697,19 +693,13 @@ mod tests {
             "(? -- x)".into_stack_effect()
         );
 
-        // todo: these return some weird stack effects
-        //       actually they should error out because the two if branches have incompatible
-        //       effects
+        if let Ok(_) = put.chain(&drop).unwrap().chain(&sfx) {
+            panic!("Expected Error")
+        }
 
-        assert_eq!(
-            put.chain(&drop).unwrap().chain(&sfx).unwrap(),
-            "(? -- x)".into_stack_effect()
-        );
-
-        assert_eq!(
-            drop.chain(&put).unwrap().chain(&sfx).unwrap(),
-            "(? -- x)".into_stack_effect()
-        );
+        if let Ok(_) = drop.chain(&put).unwrap().chain(&sfx) {
+            panic!("Expected Error")
+        }
     }
 
     #[test]
