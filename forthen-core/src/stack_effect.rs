@@ -155,16 +155,25 @@ fn rename_effects(left: &StackEffect, right: &StackEffect) -> (StackEffect, Stac
     let right_names = right.all_names();
     let dups: HashSet<&str> = left_names.intersection(&right_names).cloned().collect();
 
+    let mut used_names: HashSet<String> = left_names.union(&right_names).map(|s| s.to_string()).collect();
+
     let left_rename: HashMap<_, _> = left_names
         .into_iter()
         .map(|name| {
             (
                 name,
                 if dups.contains(&name) {
-                    add_to_name(name, 0)
+                    let mut rename = add_to_name(&name, 0);
+                    while used_names.contains(rename.as_str()) {
+                        rename = add_to_name(&rename, 1)
+                    }
+                    used_names.insert(rename.clone());
+                    rename
+
                 } else {
+                    used_names.insert(name.to_string());
                     name.to_string()
-                },
+                }
             )
         })
         .collect();
@@ -175,10 +184,17 @@ fn rename_effects(left: &StackEffect, right: &StackEffect) -> (StackEffect, Stac
             (
                 name,
                 if dups.contains(&name) {
-                    add_to_name(name, 1)
+                    let mut rename = add_to_name(&name, 0);
+                    while used_names.contains(rename.as_str()) {
+                        rename = add_to_name(&rename, 1)
+                    }
+                    used_names.insert(rename.clone());
+                    rename
+
                 } else {
+                    used_names.insert(name.to_string());
                     name.to_string()
-                },
+                }
             )
         })
         .collect();
@@ -665,5 +681,25 @@ mod tests {
             yes.chain(&no).unwrap().chain(&sfx).unwrap(),
             "(cond -- value)".into_stack_effect()
         );
+    }
+
+    #[test]
+    fn multiple_renaming() {
+        let store = "( x -- )".into_stack_effect();
+        let fetch = "( -- x )".into_stack_effect();
+        let two_dup = store
+            .chain(&store)
+            .unwrap()
+            .chain(&fetch)
+            .unwrap()
+            .chain(&fetch)
+            .unwrap()
+            .chain(&fetch)
+            .unwrap()
+            .chain(&fetch)
+            .unwrap()
+            ;
+
+        assert_eq!(two_dup, "(a b -- c d e f)".into_stack_effect());
     }
 }
