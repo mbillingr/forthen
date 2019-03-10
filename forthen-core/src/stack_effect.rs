@@ -679,10 +679,36 @@ mod tests {
         let sfx = "(..a ? yes(..a -- ..b) no(..a -- ..b) -- ..b)".into_stack_effect();
         let yes = "(..d -- ..d f(..c -- ..c x))".into_stack_effect();
         let no = "(..d -- ..d f(..c -- ..c x))".into_stack_effect();
+        let put = "(..d -- ..d f(..c -- ..c x))".into_stack_effect();
+        let drop = "(..d -- ..d f(..c x -- ..c))".into_stack_effect();
 
         assert_eq!(
             yes.chain(&no).unwrap().chain(&sfx).unwrap(),
             "(cond -- value)".into_stack_effect()
+        );
+
+        assert_eq!(
+            drop.chain(&drop).unwrap().chain(&sfx).unwrap(),
+            "(x ? -- )".into_stack_effect()
+        );
+
+        assert_eq!(
+            put.chain(&put).unwrap().chain(&sfx).unwrap(),
+            "(? -- x)".into_stack_effect()
+        );
+
+        // todo: these return some weird stack effects
+        //       actually they should error out because the two if branches have incompatible
+        //       effects
+
+        assert_eq!(
+            put.chain(&drop).unwrap().chain(&sfx).unwrap(),
+            "(? -- x)".into_stack_effect()
+        );
+
+        assert_eq!(
+            drop.chain(&put).unwrap().chain(&sfx).unwrap(),
+            "(? -- x)".into_stack_effect()
         );
     }
 
