@@ -6,9 +6,9 @@ use crate::ObjectInterface;
 use crate::StackEffect;
 use crate::State;
 use std::any::Any;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::borrow::Borrow;
 
 pub type Table = Rc<TableImpl>;
 
@@ -136,7 +136,12 @@ impl ObjectInterface for Table {
             Ok(())
         } else {
             let attr: &str = attr.borrow();
-            Err(ErrorKind::AttributeError(format!("no {} attribute in {:?}", attr, self.repr_sys())).into())
+            Err(ErrorKind::AttributeError(format!(
+                "no {} attribute in {:?}",
+                attr,
+                self.repr_sys()
+            ))
+            .into())
         }
     }
 

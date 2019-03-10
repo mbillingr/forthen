@@ -12,25 +12,24 @@ pub fn ops(state: &mut State) -> Result<()> {
         state.push(b.is_same(&a))
     });
 
-    state.add_native_word("+", "( a b -- sum )", |state| {
-        let b = state.pop()?;
-        b.add(state)
+    state.add_native_word("not", "(? -- !?)", |state| state.pop()?.not(state));
+
+    state.add_native_word("==", "(a b -- ?)", |state| state.pop()?.is_eq(state));
+
+    state.add_native_word("!=", "(a b -- ?)", |state| {
+        state.pop()?.is_eq(state)?;
+        state.pop()?.not(state)
     });
 
-    state.add_native_word("-", "( a b -- diff )", |state| {
-        let b = state.pop()?;
-        b.sub(state)
-    });
+    state.add_native_word("<", "(a b -- ?)", |state| state.pop()?.is_lt(state));
+    state.add_native_word(">", "(a b -- ?)", |state| state.pop()?.is_gt(state));
+    state.add_native_word("<=", "(a b -- ?)", |state| state.pop()?.is_le(state));
+    state.add_native_word(">=", "(a b -- ?)", |state| state.pop()?.is_ge(state));
 
-    state.add_native_word("*", "( a b -- prod )", |state| {
-        let b = state.pop()?;
-        b.mul(state)
-    });
-
-    state.add_native_word("/", "( a b -- quot )", |state| {
-        let b = state.pop()?;
-        b.div(state)
-    });
+    state.add_native_word("+", "( a b -- sum )", |state| state.pop()?.add(state));
+    state.add_native_word("-", "( a b -- diff )", |state| state.pop()?.sub(state));
+    state.add_native_word("*", "( a b -- prod )", |state| state.pop()?.mul(state));
+    state.add_native_word("/", "( a b -- quot )", |state| state.pop()?.div(state));
 
     Ok(())
 }

@@ -1,5 +1,6 @@
 use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
+use forthen_core::objects::callable::Callable;
 use forthen_core::objects::prelude::*;
 use forthen_core::CompilerScope;
 use forthen_core::Object;
@@ -7,7 +8,6 @@ use forthen_core::StackEffect;
 use forthen_core::State;
 use forthen_core::{ByteCode, Opcode};
 use std::rc::Rc;
-use forthen_core::objects::callable::Callable;
 
 /// Load language tier 0 into the dictionary
 ///
@@ -42,13 +42,16 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let quot = state.top_mut()?.try_as_quotation_mut()?;
 
-        let action = Callable::new_const(move |state|{
-            let value = state.pop()?;
-            state.add_native_word(name.clone(), "( -- x)", move |state|{
-                state.push(value.clone())
-            });
-            Ok(())
-        }, "( -- )");
+        let action = Callable::new_const(
+            move |state| {
+                let value = state.pop()?;
+                state.add_native_word(name.clone(), "( -- x)", move |state| {
+                    state.push(value.clone())
+                });
+                Ok(())
+            },
+            "( -- )",
+        );
 
         quot.ops.push(Opcode::CallDirect(action));
         Ok(())

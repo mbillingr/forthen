@@ -376,6 +376,118 @@ impl ObjectInterface for Object {
         }
     }
 
+    fn not(&self, state: &mut State) -> Result<()> {
+        match self {
+            Object::True => state.push(Object::False),
+            Object::False => state.push(Object::True),
+            _ => Err(ErrorKind::TypeError(format!("Cannot logically invert {:?}", self)).into()),
+        }
+    }
+
+    fn is_eq(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (None, None) => state.push(true),
+            (False, False) => state.push(true),
+            (True, True) => state.push(true),
+            (I32(a), I32(b)) => state.push(a == b),
+            (String(a), String(b)) => state.push(a == b),
+            (Table(a), _) => {
+                state.push(other)?;
+                a.is_eq(state)
+            }
+            (Extension(a), _) => {
+                state.push(other)?;
+                a.is_eq(state)
+            }
+            _ => Err(ErrorKind::TypeError(format!(
+                "is_eq not implemented for {:?} and {:?}",
+                self.repr_sys(), other
+            )).into()),
+        }
+    }
+
+    fn is_gt(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => state.push(a > b),
+            (Table(a), _) => {
+                state.push(other)?;
+                a.is_gt(state)
+            }
+            (Extension(a), _) => {
+                state.push(other)?;
+                a.is_gt(state)
+            }
+            _ => Err(ErrorKind::TypeError(format!(
+                "is_gt not implemented for {:?} and {:?}",
+                self.repr_sys(), other
+            )).into()),
+        }
+    }
+
+    fn is_lt(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => state.push(a < b),
+            (Table(a), _) => {
+                state.push(other)?;
+                a.is_lt(state)
+            }
+            (Extension(a), _) => {
+                state.push(other)?;
+                a.is_lt(state)
+            }
+            _ => Err(ErrorKind::TypeError(format!(
+                "is_lt not implemented for {:?} and {:?}",
+                self.repr_sys(), other
+            )).into()),
+        }
+    }
+
+    fn is_ge(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => state.push(a >= b),
+            (Table(a), _) => {
+                state.push(other)?;
+                a.is_ge(state)
+            }
+            (Extension(a), _) => {
+                state.push(other)?;
+                a.is_ge(state)
+            }
+            _ => Err(ErrorKind::TypeError(format!(
+                "is_ge not implemented for {:?} and {:?}",
+                self.repr_sys(), other
+            )).into()),
+        }
+    }
+
+    fn is_le(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => state.push(a <= b),
+            (Table(a), _) => {
+                state.push(other)?;
+                a.is_le(state)
+            }
+            (Extension(a), _) => {
+                state.push(other)?;
+                a.is_le(state)
+            }
+            _ => Err(ErrorKind::TypeError(format!(
+                "is_le not implemented for {:?} and {:?}",
+                self.repr_sys(), other
+            )).into()),
+        }
+    }
+
     fn add(&self, state: &mut State) -> Result<()> {
         use Object::*;
         let other = state.pop()?;

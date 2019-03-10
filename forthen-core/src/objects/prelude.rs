@@ -90,39 +90,28 @@ pub trait ObjectInterface {
         .into())
     }
 
+    fn not(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!("not not implemented for {:?}", self.repr_sys())).into())
+    }
+
     fn is_eq(&self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "is_eq not implemented for {:?}",
-            self.repr_sys()
-        )).into())
+        Err(ErrorKind::TypeError(format!("is_eq not implemented for {:?}", self.repr_sys())).into())
     }
 
     fn is_gt(&self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "is_gt not implemented for {:?}",
-            self.repr_sys()
-        )).into())
+        Err(ErrorKind::TypeError(format!("is_gt not implemented for {:?}", self.repr_sys())).into())
     }
 
     fn is_lt(&self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "is_lt not implemented for {:?}",
-            self.repr_sys()
-        )).into())
+        Err(ErrorKind::TypeError(format!("is_lt not implemented for {:?}", self.repr_sys())).into())
     }
 
     fn is_ge(&self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "is_ge not implemented for {:?}",
-            self.repr_sys()
-        )).into())
+        Err(ErrorKind::TypeError(format!("is_ge not implemented for {:?}", self.repr_sys())).into())
     }
 
     fn is_le(&self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "is_le not implemented for {:?}",
-            self.repr_sys()
-        )).into())
+        Err(ErrorKind::TypeError(format!("is_le not implemented for {:?}", self.repr_sys())).into())
     }
 
     fn add(&self, _state: &mut State) -> Result<()> {
