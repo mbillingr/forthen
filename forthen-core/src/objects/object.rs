@@ -23,7 +23,7 @@ pub enum Object {
     List(Rc<Vec<Object>>),
     String(Rc<String>),
 
-    Dynamic(Table),
+    Table(Table),
 
     Extension(Rc<ObjectInterface>),
 }
@@ -151,7 +151,7 @@ impl From<Object> for i32 {
 
 impl Object {
     pub fn new_table() -> Self {
-        Object::Dynamic(Rc::new(TableImpl::new()))
+        Object::Table(Rc::new(TableImpl::new()))
     }
 
     /// convert into reference counted `Vec`
@@ -221,14 +221,14 @@ impl ObjectInterface for Object {
             Object::List(list) => format!("{:?}", list),
             Object::String(rcs) => format!("{:?}", rcs),
             Object::I32(i) => format!("{:?}", i),
-            Object::Dynamic(dynobj) => dynobj.repr_sys(),
+            Object::Table(dynobj) => dynobj.repr_sys(),
             Object::Extension(dynobj) => dynobj.repr_sys(),
         }
     }
 
     fn repr(&self, state: &mut State) -> Result<()> {
         match self {
-            Object::Dynamic(dynobj) => dynobj.repr(state),
+            Object::Table(dynobj) => dynobj.repr(state),
             Object::Extension(dynobj) => dynobj.repr(state),
             _ => state.push_string(self.repr_sys()),
         }
@@ -244,7 +244,7 @@ impl ObjectInterface for Object {
             (List(_a), List(_b)) => unimplemented!(),
             (String(a), String(b)) => a == b,
             (I32(a), I32(b)) => a == b,
-            (Dynamic(a), _) => {
+            (Table(a), _) => {
                 state.push(other)?;
                 return a.cmp_equal(state);
             }
@@ -261,7 +261,7 @@ impl ObjectInterface for Object {
     fn is_number(&self) -> bool {
         match self {
             Object::I32(_) => true,
-            Object::Dynamic(dynobj) => dynobj.is_number(),
+            Object::Table(dynobj) => dynobj.is_number(),
             _ => false,
         }
     }
@@ -269,7 +269,7 @@ impl ObjectInterface for Object {
     fn is_callable(&self) -> bool {
         match self {
             Object::Word(_) | Object::Function(_) => true,
-            Object::Dynamic(dynobj) => dynobj.is_callable(),
+            Object::Table(dynobj) => dynobj.is_callable(),
             _ => false,
         }
     }
@@ -277,7 +277,7 @@ impl ObjectInterface for Object {
     fn is_sequence(&self) -> bool {
         match self {
             Object::List(_) => true,
-            Object::Dynamic(dynobj) => dynobj.is_sequence(),
+            Object::Table(dynobj) => dynobj.is_sequence(),
             _ => false,
         }
     }
@@ -286,7 +286,7 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().get_stack_effect(),
             Object::Function(f) => Ok(f.get_stack_effect()),
-            Object::Dynamic(dynobj) => dynobj.get_stack_effect(),
+            Object::Table(dynobj) => dynobj.get_stack_effect(),
             _ => panic!("{:?} is not callable", self),
         }
     }
@@ -295,7 +295,7 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().call(state),
             Object::Function(f) => f.call(state),
-            Object::Dynamic(dynobj) => dynobj.call(state),
+            Object::Table(dynobj) => dynobj.call(state),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
@@ -304,7 +304,7 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().is_pure(),
             Object::Function(f) => f.is_pure(),
-            Object::Dynamic(dynobj) => dynobj.is_pure(),
+            Object::Table(dynobj) => dynobj.is_pure(),
             _ => panic!("{:?} is not callable", self),
         }
     }
@@ -312,7 +312,7 @@ impl ObjectInterface for Object {
     fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
         match self {
             Object::List(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
-            Object::Dynamic(dynobj) => dynobj.as_vec_mut(),
+            Object::Table(dynobj) => dynobj.as_vec_mut(),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
@@ -320,14 +320,14 @@ impl ObjectInterface for Object {
     fn as_slice(&self) -> Result<&[Object]> {
         match self {
             Object::List(vec) => Ok(&vec),
-            Object::Dynamic(dynobj) => dynobj.as_slice(),
+            Object::Table(dynobj) => dynobj.as_slice(),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
     }
 
     fn set_meta(&mut self, meta: Option<Table>) -> Result<()> {
         match self {
-            Object::Dynamic(table) => {
+            Object::Table(table) => {
                 let t: Result<_> = Rc::get_mut(table).ok_or(ErrorKind::OwnershipError.into());
                 t?.set_metatable(meta);
                 Ok(())
@@ -342,28 +342,28 @@ impl ObjectInterface for Object {
 
     fn get_meta(&mut self) -> Option<Table> {
         match self {
-            Object::Dynamic(table) => table.get_metatable().cloned(),
+            Object::Table(table) => table.get_metatable().cloned(),
             _ => None,
         }
     }
 
     fn set_attr(&mut self, attr: Rc<String>, value: Object) {
         match self {
-            Object::Dynamic(dynobj) => dynobj.set_attr(attr, value),
+            Object::Table(dynobj) => dynobj.set_attr(attr, value),
             _ => panic!("set attribute not implemented for {:?}", self),
         }
     }
 
     fn get_attr(&self, attr: &str) -> Option<Object> {
         match self {
-            Object::Dynamic(dynobj) => dynobj.get_attr(attr),
+            Object::Table(dynobj) => dynobj.get_attr(attr),
             _ => None,
         }
     }
 
     fn set_attribute(&mut self, state: &mut State) -> Result<()> {
         match self {
-            Object::Dynamic(dynobj) => dynobj.set_attribute(state),
+            Object::Table(dynobj) => dynobj.set_attribute(state),
             _ => Err(ErrorKind::TypeError(format!(
                 "get/set attribute not implemented for {:?}",
                 self
@@ -373,7 +373,7 @@ impl ObjectInterface for Object {
     }
     fn get_attribute(&self, state: &mut State) -> Result<()> {
         match self {
-            Object::Dynamic(dynobj) => dynobj.get_attribute(state),
+            Object::Table(dynobj) => dynobj.get_attribute(state),
             _ => Err(ErrorKind::TypeError(format!(
                 "get/set attribute not implemented for {:?}",
                 self
@@ -391,7 +391,7 @@ impl ObjectInterface for Object {
                 state.push(other)?;
                 return a.add(state);
             }
-            (Dynamic(a), _) => {
+            (Table(a), _) => {
                 state.push(other)?;
                 return a.add(state);
             }

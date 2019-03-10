@@ -16,7 +16,7 @@ pub fn class(state: &mut State) -> Result<()> {
 
     state.add_native_word("set_metatable", "(t mt -- t')", |state| {
         match state.pop()? {
-            Object::Dynamic(mt) => state.top_mut()?.set_meta(Some(mt)),
+            Object::Table(mt) => state.top_mut()?.set_meta(Some(mt)),
             Object::None => state.top_mut()?.set_meta(None),
             _ => Err(ErrorKind::TypeError("meta table must be a table".to_string()).into()),
         }
@@ -25,7 +25,7 @@ pub fn class(state: &mut State) -> Result<()> {
     state.add_native_word("get_metatable", "(t -- t mt)", |state| {
         let mt = state.top_mut()?.get_meta();
         match mt {
-            Some(mt) => state.push(Object::Dynamic(mt)),
+            Some(mt) => state.push(Object::Table(mt)),
             None => state.push(Object::None),
         }
     });

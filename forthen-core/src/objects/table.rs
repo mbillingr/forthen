@@ -151,6 +151,6 @@ impl ObjectInterface for Table {
 
 impl From<Table> for Object {
     fn from(dob: Table) -> Self {
-        Object::Dynamic(dob)
+        Object::Table(dob)
     }
 }
