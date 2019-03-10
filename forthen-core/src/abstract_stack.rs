@@ -271,7 +271,7 @@ impl Substitutions {
         self.subs
             .get(&item)
             .cloned()
-            .unwrap_or(Sequence::single(item))
+            .unwrap_or_else(|| Sequence::single(item))
     }
 
     fn add_sequence(&mut self, a: ItemRef, b: Sequence) -> Result<Vec<(ItemRef, Sequence)>> {
@@ -359,12 +359,12 @@ impl AbstractStack {
             Some(top) => match *top {
                 StackItem::Item(_) => {
                     self.substitute(&target, &Sequence::single(top.clone()))?;
-                    return Ok(Sequence::single(top));
+                    Ok(Sequence::single(top))
                 }
                 StackItem::Row(_) => {
                     self.add_input(target.clone());
                     self.push_item(top);
-                    return Ok(Sequence::single(target));
+                    Ok(Sequence::single(target))
                 }
                 StackItem::Quotation(_, ref ia, ref oa) => {
                     if let StackItem::Quotation(_, ref ib, ref ob) = *target {
@@ -377,7 +377,7 @@ impl AbstractStack {
                             target.substitute(&a, &b);
                         }
 
-                        return Ok(Sequence::single(target));
+                        Ok(Sequence::single(target))
                     } else {
                         unimplemented!()
                     }
@@ -504,7 +504,7 @@ pub struct RefHash<T> {
 
 impl<T> RefHash<T> {
     pub fn new(inner: Rc<T>) -> Self {
-        return RefHash { inner };
+        RefHash { inner }
     }
 }
 
@@ -524,7 +524,7 @@ impl<T> Hash for RefHash<T> {
 
 impl<T> PartialEq for RefHash<T> {
     fn eq(&self, other: &Self) -> bool {
-        return Rc::ptr_eq(&self.inner, &other.inner);
+        Rc::ptr_eq(&self.inner, &other.inner)
     }
 }
 impl<T> Eq for RefHash<T> {}

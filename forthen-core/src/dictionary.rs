@@ -28,7 +28,7 @@ pub struct Entry {
 
 pub type WordId = Rc<Entry>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Dictionary {
     words: HashMap<RcString, Rc<Entry>>,
 }

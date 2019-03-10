@@ -47,7 +47,7 @@ impl std::fmt::Display for Opcode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct ByteCode {
     pub ops: Vec<Opcode>,
 }

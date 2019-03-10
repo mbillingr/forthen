@@ -125,9 +125,10 @@ impl From<Rc<String>> for Object {
 
 impl From<bool> for Object {
     fn from(b: bool) -> Object {
-        match b {
-            true => Object::True,
-            false => Object::False,
+        if b {
+            Object::True
+        } else {
+            Object::False
         }
     }
 }
@@ -222,7 +223,9 @@ impl Object {
 
     pub fn try_as_quotation_mut(&mut self) -> Result<&mut ByteCode> {
         match self {
-            Object::ByteCode(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
+            Object::ByteCode(vec) => {
+                Rc::get_mut(vec).ok_or_else(|| ErrorKind::OwnershipError.into())
+            }
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a quotation", self)).into()),
         }
     }
@@ -238,9 +241,9 @@ impl ObjectInterface for Object {
 
     fn repr_sys(&self) -> String {
         match self {
-            Object::None => format!("None"),
-            Object::False => format!("False"),
-            Object::True => format!("True"),
+            Object::None => "None".to_string(),
+            Object::False => "False".to_string(),
+            Object::True => "True".to_string(),
             Object::Word(id) => format!("{}", id),
             Object::ByteCode(q) => format!("[ {} ]", q),
             Object::Function(func) => format!("<{:?}>", func),
@@ -314,7 +317,7 @@ impl ObjectInterface for Object {
 
     fn as_vec_mut(&mut self) -> Result<&mut Vec<Object>> {
         match self {
-            Object::List(vec) => Rc::get_mut(vec).ok_or(ErrorKind::OwnershipError.into()),
+            Object::List(vec) => Rc::get_mut(vec).ok_or_else(|| ErrorKind::OwnershipError.into()),
             Object::Table(dynobj) => dynobj.as_vec_mut(),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not a list", self)).into()),
         }
@@ -331,7 +334,8 @@ impl ObjectInterface for Object {
     fn set_meta(&mut self, meta: Option<Table>) -> Result<()> {
         match self {
             Object::Table(table) => {
-                let t: Result<_> = Rc::get_mut(table).ok_or(ErrorKind::OwnershipError.into());
+                let t: Result<_> =
+                    Rc::get_mut(table).ok_or_else(|| ErrorKind::OwnershipError.into());
                 t?.set_metatable(meta);
                 Ok(())
             }

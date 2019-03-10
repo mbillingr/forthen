@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 pub type Table = Rc<TableImpl>;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TableImpl {
     attributes: HashMap<RcString, Object>,
     meta: Option<Table>,

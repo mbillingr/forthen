@@ -11,7 +11,7 @@ use crate::scope::CompilerScope;
 use crate::stack_effect::{IntoStackEffect, StackEffect};
 use crate::vm::{ByteCode, Opcode};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct State {
     input_tokens: VecDeque<String>,
     pub stack: Vec<Object>,
@@ -225,17 +225,21 @@ impl State {
     }
 
     pub fn pop(&mut self) -> Result<Object> {
-        self.stack.pop().ok_or(ErrorKind::StackUnderflow.into())
+        self.stack
+            .pop()
+            .ok_or_else(|| ErrorKind::StackUnderflow.into())
     }
 
     pub fn top(&mut self) -> Result<&Object> {
-        self.stack.last().ok_or(ErrorKind::StackUnderflow.into())
+        self.stack
+            .last()
+            .ok_or_else(|| ErrorKind::StackUnderflow.into())
     }
 
     pub fn top_mut(&mut self) -> Result<&mut Object> {
         self.stack
             .last_mut()
-            .ok_or(ErrorKind::StackUnderflow.into())
+            .ok_or_else(|| ErrorKind::StackUnderflow.into())
     }
 
     pub fn push_str(&mut self, s: &str) -> Result<()> {

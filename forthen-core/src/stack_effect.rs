@@ -29,7 +29,7 @@ impl IntoStackEffect for String {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct StackEffect {
     pub(crate) inputs: Vec<EffectNode>,
     pub(crate) outputs: Vec<EffectNode>,
@@ -77,7 +77,7 @@ impl StackEffect {
     }
 
     pub fn parse(input: &str) -> Result<Self> {
-        parse_effect(&mut tokenize(input).peekable()).map_err(|e| e.into())
+        parse_effect(&mut tokenize(input).peekable()).map_err(|e| e)
     }
 
     pub fn chain(&self, rhs: &Self) -> Result<Self> {

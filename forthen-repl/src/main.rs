@@ -77,7 +77,7 @@ fn print_stack(state: &mut State, max_len: usize) {
 
     for x in stack_copy {
         x.repr(state).unwrap();
-        let repr = format!("{}", state.pop().unwrap().as_str().unwrap());
+        let repr = state.pop().unwrap().as_str().unwrap().to_string();
         total_length += repr.len() + 2;
         if total_length > max_len {
             break;

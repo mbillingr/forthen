@@ -57,7 +57,7 @@ pub fn class(state: &mut State) -> Result<()> {
                 let value = state
                     .top()?
                     .get_attr(&name)
-                    .ok_or(ErrorKind::AttributeError(name.to_string()))?;
+                    .ok_or_else(|| ErrorKind::AttributeError(name.to_string()))?;
                 state.push(value)
             },
             "(obj -- obj val)",

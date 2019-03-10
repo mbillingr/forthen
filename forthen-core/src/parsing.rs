@@ -6,30 +6,30 @@ pub fn tokenize(input: &str) -> impl Iterator<Item = &str> {
             skip_while(&mut it, char::is_whitespace);
 
             match it.peek() {
-                None => return None,
+                None => None,
                 Some((_, '"')) => {
                     let (a, _) = it.next().unwrap();
                     skip_while(&mut it, |ch| ch != '"');
                     it.next();
                     match it.peek() {
-                        Some((b, _)) => return Some(&input[a..*b]),
-                        None => return Some(&input[a..]),
+                        Some((b, _)) => Some(&input[a..*b]),
+                        None => Some(&input[a..]),
                     }
                 }
                 Some((_, '(')) => {
                     it.next();
-                    return Some("(");
+                    Some("(")
                 }
                 Some((_, ')')) => {
                     it.next();
-                    return Some(")");
+                    Some(")")
                 }
                 Some((i, _)) => {
                     let a = *i;
                     skip_while(&mut it, |ch| ch != '(' && ch != ')' && !ch.is_whitespace());
                     match it.peek() {
-                        Some((b, _)) => return Some(&input[a..*b]),
-                        None => return Some(&input[a..]),
+                        Some((b, _)) => Some(&input[a..*b]),
+                        None => Some(&input[a..]),
                     }
                 }
             }
