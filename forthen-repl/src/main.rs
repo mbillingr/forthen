@@ -1,4 +1,5 @@
 use forthen_core::errors::*;
+use forthen_core::objects::prelude::*;
 use forthen_core::{Object, State};
 use forthen_std::{class, complex, ops, tier0, tier1};
 use rustyline::Editor;
@@ -44,7 +45,7 @@ fn main() {
 
     loop {
         println!();
-        print_stack(&state.stack, 70);
+        print_stack(&mut state, 70);
 
         match rl.readline(">> ") {
             Ok(line) => {
@@ -62,12 +63,15 @@ fn main() {
     }
 }
 
-fn print_stack(stack: &[Object], max_len: usize) {
+fn print_stack(state: &mut State, max_len: usize) {
     let mut total_length = 0;
     let mut top = vec![];
 
-    for x in stack.iter().rev() {
-        let repr = format!("{:?}", x);
+    let stack_copy: Vec<_> = state.stack.iter().rev().cloned().take(max_len / 3).collect();
+
+    for x in stack_copy {
+        x.repr(state).unwrap();
+        let repr = format!("{}", state.pop().unwrap().as_str().unwrap());
         total_length += repr.len() + 2;
         if total_length > max_len {
             break;
@@ -77,7 +81,7 @@ fn print_stack(stack: &[Object], max_len: usize) {
 
     top.reverse();
 
-    if top.len() < stack.len() {
+    if top.len() < state.stack.len() {
         println!("[.., {}]", top.join(", "));
     } else {
         println!("[{}]", top.join(", "));

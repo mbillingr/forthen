@@ -4,7 +4,9 @@ use forthen_core::State;
 
 /// Load basic operations into the dictionary
 pub fn ops(state: &mut State) -> Result<()> {
-    // math operations
+    state.add_native_word("repr", "(x -- s)", |state| {
+        state.pop()?.repr(state)
+    });
 
     state.add_native_word("same?", "(a b -- ?)", |state| {
         let b = state.pop()?;

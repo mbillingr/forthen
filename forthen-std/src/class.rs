@@ -120,7 +120,7 @@ pub fn class(state: &mut State) -> Result<()> {
         "
         : class {} ;
 
-        class
+        LET: Complex class
             [
                 {}
                 swap set_metatable
@@ -165,9 +165,10 @@ pub fn class(state: &mut State) -> Result<()> {
                 swap set_attr real
             ] set_attr __add__
 
-            [ \"Complex\" ] set_attr __repr__
+            [ get_attr get call rot drop repr swap repr \", \" + swap + \"Complex(\" swap + \")\" + ] set_attr __repr__
+        ;
 
-        LET: Complex
+        Complex get_attr new call
     ",
     )?;
 

@@ -9,6 +9,7 @@ use crate::state::State;
 use crate::vm::ByteCode;
 use std::any::Any;
 use std::rc::Rc;
+use crate::object_factory::StringManager;
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -172,6 +173,13 @@ impl Object {
         }
     }
 
+    pub fn as_str(&self) -> Result<&str> {
+        match self {
+            Object::String(s) => Ok(s),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not a string", self)).into()),
+        }
+    }
+
     /// convert into reference counted `Vec`
     pub fn into_rc_vec(self) -> Result<Rc<Vec<Object>>> {
         match self {
@@ -262,7 +270,7 @@ impl ObjectInterface for Object {
 
     fn is_callable(&self) -> bool {
         match self {
-            Object::Word(_) | Object::Function(_) => true,
+            Object::Word(_) | Object::Function(_) | Object::ByteCode(_) => true,
             Object::Table(dynobj) => dynobj.is_callable(),
             _ => false,
         }
@@ -289,6 +297,7 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().call(state),
             Object::Function(f) => f.call(state),
+            Object::ByteCode(code) => code.run(state),
             Object::Table(dynobj) => dynobj.call(state),
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
@@ -502,18 +511,21 @@ impl ObjectInterface for Object {
         use Object::*;
         let other = state.pop()?;
         match (self, &other) {
-            (I32(a), I32(b)) => return state.push(I32(a + b)),
+            (I32(a), I32(b)) => state.push(I32(a + b)),
+            (String(a), String(b)) => {
+                let rcs = state.factory.get_string(format!("{}{}", b, a));
+                state.push(rcs)
+            }
             (Extension(a), _) => {
                 state.push(other)?;
-                return a.add(state);
+                a.add(state)
             }
             (Table(a), _) => {
                 state.push(other)?;
-                return a.add(state);
+                a.add(state)
             }
-            (_, _) => {}
+            (_, _) => Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
         }
-        Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
     }
 
     fn sub(&self, state: &mut State) -> Result<()> {

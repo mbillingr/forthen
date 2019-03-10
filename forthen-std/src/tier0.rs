@@ -40,20 +40,19 @@ pub fn tier0(state: &mut State) -> Result<()> {
     state.add_native_parse_word("LET:", |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
-        let quot = state.top_mut()?.try_as_quotation_mut()?;
+        state.begin_compile();
 
-        let action = Callable::new_const(
-            move |state| {
-                let value = state.pop()?;
-                state.add_native_word(name.clone(), "( -- x)", move |state| {
-                    state.push(value.clone())
-                });
-                Ok(())
-            },
-            "( -- )",
-        );
+        if let Err(e) = state.parse_until(";") {
+            state.pop().unwrap();
+            return Err(e);
+        }
 
-        quot.ops.push(Opcode::CallDirect(action));
+        let obj = state.pop()?;
+        obj.call(state)?;
+
+        let value = state.pop()?;
+
+        state.add_native_word(name, "( -- x)", move |state| state.push(value.clone()));
         Ok(())
     });
 
