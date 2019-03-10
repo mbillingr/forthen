@@ -75,15 +75,16 @@ impl StackItem {
         }
     }
 
-    fn substitute(&self, a: &ItemRef, b: &Sequence) {
+    fn substitute(&self, a: &ItemRef, b: &Sequence) -> Result<()> {
         match self {
             StackItem::Row(_) => {}
             StackItem::Item(_) => {}
             StackItem::Quotation(_, inps, outs) => {
-                inps.borrow_mut().substitute(a, b);
-                outs.borrow_mut().substitute(a, b);
+                inps.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b)?;
+                outs.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b)?;
             }
         }
+        Ok(())
     }
 }
 
@@ -165,7 +166,7 @@ impl Sequence {
         self.values.into_iter().next().unwrap()
     }
 
-    fn substitute(&mut self, a: &ItemRef, b: &Sequence) {
+    fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<()> {
         let mut i = 0;
         while i < self.len() {
             if &self.values[i] == a {
@@ -175,10 +176,11 @@ impl Sequence {
                 self.values = tmp;
                 i += b.len();
             } else {
-                self.values[i].substitute(a, b);
+                self.values[i].substitute(a, b)?;
                 i += 1;
             }
         }
+        Ok(())
     }
 
     fn compare(&self, other: &Sequence) -> ItemOrd {
@@ -298,7 +300,7 @@ impl Substitutions {
                 }
 
                 for other_b in self.subs.values_mut() {
-                    other_b.substitute(&a, &b);
+                    other_b.substitute(&a, &b)?;
                 }
 
                 if b.len() == 1 && a == b.values[0] {
@@ -350,6 +352,14 @@ impl Substitutions {
                     queue.push(child);
                     added = true;
                 }
+                /*if let StackItem::Quotation(_, inp, out) = &**child {
+                    for subchild in inp.borrow().values.iter().chain(&out.borrow().values) {
+                        if self.subs.contains_key(subchild) {
+                            queue.push(subchild);
+                            added = true;
+                        }
+                    }
+                }*/
             }
             if !added {
                 stack.pop();
@@ -421,7 +431,7 @@ impl AbstractStack {
 
                         for (a, b) in subs {
                             self.substitute(&a, &b)?;
-                            target.substitute(&a, &b);
+                            target.substitute(&a, &b)?;
                         }
 
                         Ok(Sequence::single(target))
@@ -451,8 +461,8 @@ impl AbstractStack {
 
     fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<()> {
         for (a, b) in self.subs.add_sequence(a.clone(), b.clone())? {
-            self.inputs.substitute(&a, &b);
-            self.outputs.substitute(&a, &b);
+            self.inputs.substitute(&a, &b)?;
+            self.outputs.substitute(&a, &b)?;
         }
         Ok(())
     }
