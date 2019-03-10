@@ -10,11 +10,10 @@ pub use ops::ops;
 pub use tier0::tier0;
 pub use tier1::tier1;
 
-
 #[cfg(test)]
 mod tests {
-    use forthen_core::State;
     use super::*;
+    use forthen_core::State;
 
     #[test]
     fn recursion() {

@@ -3,13 +3,13 @@ use super::prelude::*;
 use super::table::Table;
 use crate::dictionary::WordId;
 use crate::errors::*;
+use crate::object_factory::StringManager;
 use crate::objects::table::TableImpl;
 use crate::stack_effect::StackEffect;
 use crate::state::State;
 use crate::vm::ByteCode;
 use std::any::Any;
 use std::rc::Rc;
-use crate::object_factory::StringManager;
 
 /// Dynamically typed value
 #[derive(Clone)]
@@ -524,7 +524,9 @@ impl ObjectInterface for Object {
                 state.push(other)?;
                 a.add(state)
             }
-            (_, _) => Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
+            (_, _) => {
+                Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
+            }
         }
     }
 

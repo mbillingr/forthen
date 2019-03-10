@@ -41,7 +41,7 @@ impl std::fmt::Display for Opcode {
         match self {
             Opcode::Push(obj) => write!(f, "{:?}", obj),
             Opcode::Call(obj) => write!(f, "{:?}", obj),
-            Opcode::CallDirect(ca) => write!(f, "@<{:?}>", ca),
+            Opcode::CallDirect(ca) => write!(f, "<{:?}>", ca),
             Opcode::TailRecurse => write!(f, "<tail recurse>"),
         }
     }

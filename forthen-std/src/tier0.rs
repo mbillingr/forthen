@@ -1,6 +1,5 @@
 use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
-use forthen_core::objects::callable::Callable;
 use forthen_core::objects::prelude::*;
 use forthen_core::CompilerScope;
 use forthen_core::Object;

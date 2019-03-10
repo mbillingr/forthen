@@ -155,7 +155,10 @@ fn rename_effects(left: &StackEffect, right: &StackEffect) -> (StackEffect, Stac
     let right_names = right.all_names();
     let dups: HashSet<&str> = left_names.intersection(&right_names).cloned().collect();
 
-    let mut used_names: HashSet<String> = left_names.union(&right_names).map(|s| s.to_string()).collect();
+    let mut used_names: HashSet<String> = left_names
+        .union(&right_names)
+        .map(|s| s.to_string())
+        .collect();
 
     let left_rename: HashMap<_, _> = left_names
         .into_iter()
@@ -169,11 +172,10 @@ fn rename_effects(left: &StackEffect, right: &StackEffect) -> (StackEffect, Stac
                     }
                     used_names.insert(rename.clone());
                     rename
-
                 } else {
                     used_names.insert(name.to_string());
                     name.to_string()
-                }
+                },
             )
         })
         .collect();
@@ -190,11 +192,10 @@ fn rename_effects(left: &StackEffect, right: &StackEffect) -> (StackEffect, Stac
                     }
                     used_names.insert(rename.clone());
                     rename
-
                 } else {
                     used_names.insert(name.to_string());
                     name.to_string()
-                }
+                },
             )
         })
         .collect();
@@ -216,7 +217,9 @@ fn compare_sequence<'a>(
     pos_a: &mut HashMap<&'a str, usize>,
     pos_b: &mut HashMap<&'a str, usize>,
 ) -> bool {
-    if seq_a.len() != seq_b.len() { return false }
+    if seq_a.len() != seq_b.len() {
+        return false;
+    }
     for (a, b) in seq_a.iter().zip(seq_b) {
         let n = pos_a.len();
         let m = pos_b.len();
@@ -697,8 +700,7 @@ mod tests {
             .chain(&fetch)
             .unwrap()
             .chain(&fetch)
-            .unwrap()
-            ;
+            .unwrap();
 
         assert_eq!(two_dup, "(a b -- c d e f)".into_stack_effect());
     }

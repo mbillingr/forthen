@@ -36,7 +36,4 @@ mod tests {
         assert_eq!(state.pop_i32().unwrap(), 0);
         assert_eq!(state.pop_i32().unwrap(), -10);
     }
-
-    #[test]
-    fn it_works() {}
 }

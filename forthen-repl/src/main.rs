@@ -1,6 +1,6 @@
 use forthen_core::errors::*;
 use forthen_core::objects::prelude::*;
-use forthen_core::{Object, State};
+use forthen_core::State;
 use forthen_std::{class, complex, ops, tier0, tier1};
 use rustyline::Editor;
 
@@ -67,7 +67,13 @@ fn print_stack(state: &mut State, max_len: usize) {
     let mut total_length = 0;
     let mut top = vec![];
 
-    let stack_copy: Vec<_> = state.stack.iter().rev().cloned().take(max_len / 3).collect();
+    let stack_copy: Vec<_> = state
+        .stack
+        .iter()
+        .rev()
+        .cloned()
+        .take(max_len / 3)
+        .collect();
 
     for x in stack_copy {
         x.repr(state).unwrap();
