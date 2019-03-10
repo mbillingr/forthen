@@ -24,15 +24,6 @@ impl ObjectInterface for Complex {
         format!("({} + {}i)", self.real, self.imag)
     }
 
-    fn cmp_equal(&self, state: &mut State) -> Result<()> {
-        let other = state.pop()?;
-        let result = match other.as_any().downcast_ref::<Self>() {
-            Some(c) => self.real == c.real && self.imag == c.imag,
-            None => false,
-        };
-        state.push(result)
-    }
-
     fn add(&self, state: &mut State) -> Result<()> {
         let other = state.pop()?;
         let result = match other.as_any().downcast_ref::<Self>() {

@@ -154,6 +154,24 @@ impl Object {
         Object::Table(Rc::new(TableImpl::new()))
     }
 
+    pub fn is_same(&self, other: &Object) -> bool {
+        use Object::*;
+        match (self, other) {
+            (None, None) => true,
+            (False, False) => true,
+            (True, True) => true,
+            (I32(a), I32(b)) => a == b,
+            (Word(a), Word(b)) => Rc::ptr_eq(a, b),
+            (Function(a), Function(b)) => a == b,
+            (ByteCode(a), ByteCode(b)) => Rc::ptr_eq(a, b),
+            (List(a), List(b)) => Rc::ptr_eq(a, b),
+            (String(a), String(b)) => Rc::ptr_eq(a, b),
+            (Table(a), Table(b)) => Rc::ptr_eq(a, b),
+            (Extension(a), Extension(b)) => Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+
     /// convert into reference counted `Vec`
     pub fn into_rc_vec(self) -> Result<Rc<Vec<Object>>> {
         match self {
@@ -232,30 +250,6 @@ impl ObjectInterface for Object {
             Object::Extension(dynobj) => dynobj.repr(state),
             _ => state.push_string(self.repr_sys()),
         }
-    }
-
-    fn cmp_equal(&self, state: &mut State) -> Result<()> {
-        use Object::*;
-        let other = state.pop()?;
-        let result = match (self, &other) {
-            (None, None) => true,
-            (Function(a), Function(b)) => a == b,
-            (ByteCode(a), ByteCode(b)) => a == b,
-            (List(_a), List(_b)) => unimplemented!(),
-            (String(a), String(b)) => a == b,
-            (I32(a), I32(b)) => a == b,
-            (Table(a), _) => {
-                state.push(other)?;
-                return a.cmp_equal(state);
-            }
-            (Extension(a), _) => {
-                state.push(other)?;
-                return a.cmp_equal(state);
-            }
-            _ => false,
-        };
-        state.push(result)?;
-        Ok(())
     }
 
     fn is_number(&self) -> bool {
@@ -398,5 +392,59 @@ impl ObjectInterface for Object {
             (_, _) => {}
         }
         Err(ErrorKind::TypeError(format!("Cannot add {:?} + {:?}", self, other)).into())
+    }
+
+    fn sub(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => return state.push(I32(b - a)),
+            (Extension(a), _) => {
+                state.push(other)?;
+                return a.sub(state);
+            }
+            (Table(a), _) => {
+                state.push(other)?;
+                return a.sub(state);
+            }
+            (_, _) => {}
+        }
+        Err(ErrorKind::TypeError(format!("Cannot subtract {:?} - {:?}", other, self)).into())
+    }
+
+    fn mul(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => return state.push(I32(a * b)),
+            (Extension(a), _) => {
+                state.push(other)?;
+                return a.mul(state);
+            }
+            (Table(a), _) => {
+                state.push(other)?;
+                return a.mul(state);
+            }
+            (_, _) => {}
+        }
+        Err(ErrorKind::TypeError(format!("Cannot multiply {:?} * {:?}", self, other)).into())
+    }
+
+    fn div(&self, state: &mut State) -> Result<()> {
+        use Object::*;
+        let other = state.pop()?;
+        match (self, &other) {
+            (I32(a), I32(b)) => return state.push(I32(b / a)),
+            (Extension(a), _) => {
+                state.push(other)?;
+                return a.div(state);
+            }
+            (Table(a), _) => {
+                state.push(other)?;
+                return a.div(state);
+            }
+            (_, _) => {}
+        }
+        Err(ErrorKind::TypeError(format!("Cannot divide {:?} / {:?}", other, self)).into())
     }
 }

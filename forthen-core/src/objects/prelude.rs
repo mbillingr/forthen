@@ -16,14 +16,6 @@ pub trait ObjectInterface {
         state.push_string(self.repr_sys())
     }
 
-    fn cmp_equal(&self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "cmp_equal not implemented for {:?}",
-            self.repr_sys()
-        ))
-        .into())
-    }
-
     fn is_number(&self) -> bool {
         false
     }
@@ -98,7 +90,54 @@ pub trait ObjectInterface {
         .into())
     }
 
+    fn is_eq(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "is_eq not implemented for {:?}",
+            self.repr_sys()
+        )).into())
+    }
+
+    fn is_gt(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "is_gt not implemented for {:?}",
+            self.repr_sys()
+        )).into())
+    }
+
+    fn is_lt(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "is_lt not implemented for {:?}",
+            self.repr_sys()
+        )).into())
+    }
+
+    fn is_ge(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "is_ge not implemented for {:?}",
+            self.repr_sys()
+        )).into())
+    }
+
+    fn is_le(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!(
+            "is_le not implemented for {:?}",
+            self.repr_sys()
+        )).into())
+    }
+
     fn add(&self, _state: &mut State) -> Result<()> {
         Err(ErrorKind::TypeError(format!("add not implemented for {:?}", self.repr_sys())).into())
+    }
+
+    fn sub(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!("sub not implemented for {:?}", self.repr_sys())).into())
+    }
+
+    fn mul(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!("mul not implemented for {:?}", self.repr_sys())).into())
+    }
+
+    fn div(&self, _state: &mut State) -> Result<()> {
+        Err(ErrorKind::TypeError(format!("div not implemented for {:?}", self.repr_sys())).into())
     }
 }

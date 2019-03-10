@@ -6,6 +6,12 @@ use forthen_core::State;
 pub fn ops(state: &mut State) -> Result<()> {
     // math operations
 
+    state.add_native_word("same?", "(a b -- ?)", |state| {
+        let b = state.pop()?;
+        let a = state.pop()?;
+        state.push(b.is_same(&a))
+    });
+
     state.add_native_word("+", "( a b -- sum )", |state| {
         let b = state.pop()?;
         b.add(state)
@@ -13,20 +19,17 @@ pub fn ops(state: &mut State) -> Result<()> {
 
     state.add_native_word("-", "( a b -- diff )", |state| {
         let b = state.pop()?;
-        let a = state.pop()?;
-        state.push((a - b)?)
+        b.sub(state)
     });
 
     state.add_native_word("*", "( a b -- prod )", |state| {
         let b = state.pop()?;
-        let a = state.pop()?;
-        state.push((a * b)?)
+        b.mul(state)
     });
 
     state.add_native_word("/", "( a b -- quot )", |state| {
         let b = state.pop()?;
-        let a = state.pop()?;
-        state.push((a / b)?)
+        b.div(state)
     });
 
     Ok(())

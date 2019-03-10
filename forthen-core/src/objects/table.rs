@@ -62,16 +62,12 @@ impl ObjectInterface for Table {
     }
 
     fn repr(&self, state: &mut State) -> Result<()> {
-        if let Some(obj) = self.attributes.get("__repr__") {
+        if let Some(obj) = self.meta_lookup("__repr__") {
             state.push(self.clone())?;
             obj.call(state)
         } else {
             state.push_string(self.repr_sys())
         }
-    }
-
-    fn cmp_equal(&self, state: &mut State) -> Result<()> {
-        invoke_method(self, "__eq__", state)
     }
 
     fn get_stack_effect(&self) -> Result<&StackEffect> {
@@ -146,6 +142,18 @@ impl ObjectInterface for Table {
 
     fn add(&self, state: &mut State) -> Result<()> {
         invoke_method(self, "__add__", state)
+    }
+
+    fn sub(&self, state: &mut State) -> Result<()> {
+        invoke_method(self, "__sub__", state)
+    }
+
+    fn mul(&self, state: &mut State) -> Result<()> {
+        invoke_method(self, "__mul__", state)
+    }
+
+    fn div(&self, state: &mut State) -> Result<()> {
+        invoke_method(self, "__div__", state)
     }
 }
 
