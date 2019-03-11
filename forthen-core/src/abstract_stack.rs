@@ -1,8 +1,8 @@
 use crate::errors::*;
+use crate::refhash::RefHash;
 use crate::stack_effect::{EffectNode, StackEffect};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::mem::replace;
 use std::rc::Rc;
@@ -75,20 +75,21 @@ impl StackItem {
         }
     }
 
-    fn substitute(&self, a: &ItemRef, b: &Sequence) -> Result<()> {
+    fn substitute(&self, a: &ItemRef, b: &Sequence, quot_stack: &mut Vec<usize>) -> Result<()> {
         match self {
             StackItem::Row(_) => {}
             StackItem::Item(_) => {}
-            StackItem::Quotation(_, inps, outs) => {
-                // todo: recursive definitions
+            StackItem::Quotation(name, inps, outs) => {
+                let addr = self as *const _ as usize;
 
-                // this causes an error with recursion
-                inps.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b)?;
-                outs.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b)?;
+                if quot_stack.contains(&addr) { return Ok(()) }
 
-                // and this causes a stack overflow...
-                //if let Ok(mut i) = inps.try_borrow_mut() { i.substitute(a, b)?; }
-                //if let Ok(mut o) = outs.try_borrow_mut() { o.substitute(a, b)?; }
+                quot_stack.push(addr);
+
+                inps.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b, quot_stack)?;
+                outs.try_borrow_mut().map_err(|_| ErrorKind::IncompatibleStackEffects)?.substitute(a, b, quot_stack)?;
+
+                quot_stack.pop();
             }
         }
         Ok(())
@@ -173,7 +174,12 @@ impl Sequence {
         self.values.into_iter().next().unwrap()
     }
 
-    fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<()> {
+    fn substitute(&mut self, a: &ItemRef, b: &Sequence, quot_stack: &mut Vec<usize>) -> Result<()> {
+        let addr = self as *const _ as usize;
+        if quot_stack.contains(&addr) { return Ok(()) }
+
+        quot_stack.push(addr);
+
         let mut i = 0;
         while i < self.len() {
             if &self.values[i] == a {
@@ -183,10 +189,12 @@ impl Sequence {
                 self.values = tmp;
                 i += b.len();
             } else {
-                self.values[i].substitute(a, b)?;
+                self.values[i].substitute(a, b, quot_stack)?;
                 i += 1;
             }
         }
+
+        quot_stack.pop();        
         Ok(())
     }
 
@@ -307,7 +315,7 @@ impl Substitutions {
                 }
 
                 for other_b in self.subs.values_mut() {
-                    other_b.substitute(&a, &b)?;
+                    other_b.substitute(&a, &b, &mut vec![])?;
                 }
 
                 if b.len() == 1 && a == b.values[0] {
@@ -438,7 +446,7 @@ impl AbstractStack {
 
                         for (a, b) in subs {
                             self.substitute(&a, &b)?;
-                            target.substitute(&a, &b)?;
+                            target.substitute(&a, &b, &mut vec![])?;
                         }
 
                         Ok(Sequence::single(target))
@@ -468,8 +476,8 @@ impl AbstractStack {
 
     fn substitute(&mut self, a: &ItemRef, b: &Sequence) -> Result<()> {
         for (a, b) in self.subs.add_sequence(a.clone(), b.clone())? {
-            self.inputs.substitute(&a, &b)?;
-            self.outputs.substitute(&a, &b)?;
+            self.inputs.substitute(&a, &b, &mut vec![])?;
+            self.outputs.substitute(&a, &b, &mut vec![])?;
         }
         Ok(())
     }
@@ -558,59 +566,6 @@ impl std::fmt::Debug for StackItem {
                 write!(f, "{}({:?} -- {:?})", name, a.borrow(), b.borrow())
             }
         }
-    }
-}
-
-/// Helper for hashing by Rc identity
-pub struct RefHash<T> {
-    inner: Rc<T>,
-}
-
-impl<T> RefHash<T> {
-    pub fn new(inner: Rc<T>) -> Self {
-        RefHash { inner }
-    }
-}
-
-impl<T: std::fmt::Debug> RefHash<T> {
-    pub fn into_deref(self) -> T {
-        Rc::try_unwrap(self.inner).unwrap()
-    }
-}
-
-impl<T> Hash for RefHash<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let ptr = Rc::into_raw(self.inner.clone());
-        ptr.hash(state);
-        let _ = unsafe { Rc::from_raw(ptr) };
-    }
-}
-
-impl<T> PartialEq for RefHash<T> {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.inner, &other.inner)
-    }
-}
-impl<T> Eq for RefHash<T> {}
-
-impl<T> Clone for RefHash<T> {
-    fn clone(&self) -> Self {
-        RefHash {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-impl<T> std::ops::Deref for RefHash<T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        &*self.inner
-    }
-}
-
-impl<T: std::fmt::Debug> std::fmt::Debug for RefHash<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.inner)
     }
 }
 

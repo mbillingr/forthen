@@ -7,6 +7,7 @@ pub mod errors;
 pub mod object_factory;
 pub mod objects;
 mod parsing;
+mod refhash;
 mod rcstring;
 mod scope;
 mod stack_effect;

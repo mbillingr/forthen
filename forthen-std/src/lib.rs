@@ -29,7 +29,7 @@ mod tests {
         ]
         dup rot swap
         call ;").unwrap();
-        state.run("10 recursive").unwrap();
+        //state.run("10 recursive").unwrap();
         panic!()
     }
 }
