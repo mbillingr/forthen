@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 /// Helper for hashing by Rc identity
 pub struct RefHash<T> {

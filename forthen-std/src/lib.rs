@@ -21,14 +21,18 @@ mod tests {
         tier0(&mut state).unwrap();
         tier1(&mut state).unwrap();
         ops(&mut state).unwrap();
-        state.run(": recursive
+        state
+            .run(
+                ": recursive
         [
             1 - dup 0 ==
             [ dup . swap dup rot swap drop ]
             [ dup . swap dup rot swap call ] if
         ]
         dup rot swap
-        call ;").unwrap();
+        call ;",
+            )
+            .unwrap();
         //state.run("10 recursive").unwrap();
         panic!()
     }

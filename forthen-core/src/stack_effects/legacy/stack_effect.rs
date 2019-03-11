@@ -1,7 +1,11 @@
 use crate::abstract_stack::{AbstractStack, Sequence, StackItem};
 use crate::errors::*;
 use crate::parsing::tokenize;
+use crate::refhash::RefHash;
 use std::collections::{HashMap, HashSet};
+use std::rc::{Rc, Weak};
+use std::cell::RefCell;
+use std::borrow::Borrow;
 
 pub trait IntoStackEffect: Sized {
     fn try_into_stack_effect(self) -> Result<StackEffect>;
@@ -29,55 +33,100 @@ impl IntoStackEffect for String {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct NodeRef {
+    node: Rc<RefCell<EffectNode>>,
+}
+
+impl NodeRef {
+    fn new(node: EffectNode) -> Self {
+        NodeRef {
+            node: Rc::new(RefCell::new(node))
+        }
+    }
+
+    pub fn borrow(&self) -> &EffectNode {
+        &(*self.node).borrow()
+    }
+}
+
+#[derive(Debug, Default)]
+struct NodePool {
+    nodes: Vec<NodeRef>,
+}
+
+impl NodePool {
+    fn find_or_insert(&mut self, new_node: EffectNode) -> NodeRef {
+        for noderef in &self.nodes {
+            if noderef.borrow().name() == new_node.name() {
+                return noderef.clone()
+            }
+        }
+
+        self.insert(new_node)
+    }
+
+    fn insert(&mut self, new_node: EffectNode) -> NodeRef {        
+        let r = NodeRef::new(new_node);
+        self.nodes.push(r.clone());
+        r
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct StackEffect {
-    pub(crate) inputs: Vec<EffectNode>,
-    pub(crate) outputs: Vec<EffectNode>,
+    pub(crate) inputs: Vec<NodeRef>,
+    pub(crate) outputs: Vec<NodeRef>,
 }
 
 impl StackEffect {
     pub fn new() -> Self {
+        let row = NodeRef::new(EffectNode::Row("_".to_string()));
         StackEffect {
-            inputs: vec![EffectNode::Row("_".to_string())],
-            outputs: vec![EffectNode::Row("_".to_string())],
+            inputs: vec![row],
+            outputs: vec![row],
         }
     }
 
     pub fn new_pushing(varname: &str) -> Self {
+        let row = NodeRef::new(EffectNode::Row("_".to_string()));
         StackEffect {
-            inputs: vec![EffectNode::Row("_".to_string())],
+            inputs: vec![row],
             outputs: vec![
-                EffectNode::Row("_".to_string()),
-                EffectNode::Item(varname.to_string()),
+                row,
+                NodeRef::new(EffectNode::Item(varname.to_string())),
             ],
         }
     }
 
     pub fn new_quotation(name: &str, effect: StackEffect) -> Self {
+        let row = NodeRef::new(EffectNode::Row("_".to_string()));
         StackEffect {
-            inputs: vec![EffectNode::Row("_".to_string())],
+            inputs: vec![row],
             outputs: vec![
-                EffectNode::Row("_".to_string()),
-                EffectNode::quoted_effect(name, effect),
+                row,
+                NodeRef::new(EffectNode::quoted_effect(name, effect)),
             ],
         }
     }
 
     pub fn new_mod(varname: &str) -> Self {
+        let row = NodeRef::new(EffectNode::Row("_".to_string()));
         StackEffect {
             inputs: vec![
-                EffectNode::Row("_".to_string()),
-                EffectNode::Item(varname.to_string()),
+                row,
+                NodeRef::new(EffectNode::Item(varname.to_string())),
             ],
             outputs: vec![
-                EffectNode::Row("_".to_string()),
-                EffectNode::Item(varname.to_string()),
+                row,
+                NodeRef::new(EffectNode::Item(varname.to_string() + "'")),
             ],
         }
     }
 
     pub fn parse(input: &str) -> Result<Self> {
-        parse_effect(&mut tokenize(input).peekable()).map_err(|e| e)
+        let mut node_pool = NodePool::default();
+        parse_effect(&mut node_pool, &mut tokenize(input).peekable()).map_err(|e| e)
     }
 
     pub fn chain(&self, rhs: &Self) -> Result<Self> {
@@ -377,21 +426,23 @@ impl std::fmt::Debug for EffectNode {
 }
 
 fn parse_effect<'a>(
+    node_pool: &mut NodePool,
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
 ) -> Result<StackEffect> {
     assert_eq!(input.next(), Some("("));
-    let mut inputs = parse_sequence(input, "--")?;
-    let mut outputs = parse_sequence(input, ")")?;
+    let mut inputs = parse_sequence(node_pool, input, "--")?;
+    let mut outputs = parse_sequence(node_pool, input, ")")?;
 
-    match (inputs.get(0), outputs.get(0)) {
+    match (inputs.get(0).map(|&i|node_pool.get(i)), outputs.get(0).map(|&o|node_pool.get(o))) {
         (Some(EffectNode::Row(_)), _) => {}
         (_, Some(EffectNode::Row(_))) => {}
         _ => {
-            let mut tmp = vec![EffectNode::Row("_".to_string())];
+            let id = node_pool.insert(EffectNode::Row("_".to_string()));
+            let mut tmp = vec![id];
             tmp.extend(inputs);
             inputs = tmp;
 
-            let mut tmp = vec![EffectNode::Row("_".to_string())];
+            let mut tmp = vec![id];
             tmp.extend(outputs);
             outputs = tmp;
         }
@@ -401,17 +452,19 @@ fn parse_effect<'a>(
 }
 
 fn parse_quotation<'a>(
+    node_pool: &mut NodePool,
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     name: &str,
 ) -> Result<EffectNode> {
-    let se = parse_effect(input)?;
+    let se = parse_effect(node_pool, input)?;
     Ok(EffectNode::Quotation(name.to_string(), se))
 }
 
 fn parse_sequence<'a>(
+    node_pool: &mut NodePool,
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     terminator: &str,
-) -> Result<Vec<EffectNode>> {
+) -> Result<Vec<usize>> {
     let mut sequence = vec![];
     while let Some(token) = input.next() {
         if token == terminator {
@@ -419,14 +472,15 @@ fn parse_sequence<'a>(
         }
 
         let element = if let Some(&"(") = input.peek() {
-            parse_quotation(input, token)?
+            parse_quotation(node_pool, input, token)?
         } else if token.starts_with("..") {
             EffectNode::Row(token[2..].to_string())
         } else {
             EffectNode::Item(token.to_string())
         };
 
-        sequence.push(element);
+        let id = node_pool.find_or_insert(element);
+        sequence.push(id);
     }
 
     Err(ErrorKind::EndOfInput.into())
