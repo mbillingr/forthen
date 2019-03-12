@@ -8,7 +8,7 @@ use crate::object_factory::{ObjectFactory, StringManager};
 use crate::objects::{callable::Callable, prelude::*};
 use crate::parsing::tokenize;
 use crate::scope::CompilerScope;
-use crate::stack_effect::{IntoStackEffect, StackEffect};
+use crate::stack_effects::{IntoStackEffect, StackEffect};
 use crate::vm::{ByteCode, Opcode};
 
 #[derive(Debug, Default)]

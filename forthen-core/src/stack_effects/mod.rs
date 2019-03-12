@@ -8,6 +8,34 @@ mod sequence;
 pub use effect::StackEffect;
 pub use parser::parse_effect;
 
+use crate::errors::*;
+
+pub trait IntoStackEffect: Sized {
+    fn try_into_stack_effect(self) -> Result<StackEffect>;
+
+    fn into_stack_effect(self) -> StackEffect {
+        self.try_into_stack_effect().unwrap()
+    }
+}
+
+impl IntoStackEffect for StackEffect {
+    fn try_into_stack_effect(self) -> Result<StackEffect> {
+        Ok(self)
+    }
+}
+
+impl IntoStackEffect for &str {
+    fn try_into_stack_effect(self) -> Result<StackEffect> {
+        StackEffect::parse(self)
+    }
+}
+
+impl IntoStackEffect for String {
+    fn try_into_stack_effect(self) -> Result<StackEffect> {
+        StackEffect::parse(&self)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

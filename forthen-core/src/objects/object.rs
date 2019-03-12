@@ -5,7 +5,7 @@ use crate::dictionary::WordId;
 use crate::errors::*;
 use crate::object_factory::StringManager;
 use crate::objects::table::TableImpl;
-use crate::stack_effect::StackEffect;
+use crate::stack_effects::StackEffect;
 use crate::state::State;
 use crate::vm::ByteCode;
 use std::any::Any;

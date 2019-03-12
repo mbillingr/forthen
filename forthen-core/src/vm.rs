@@ -1,7 +1,7 @@
 use crate::dictionary::WordId;
 use crate::errors::Result;
 use crate::objects::{callable::Callable, prelude::*, Object};
-use crate::stack_effect::StackEffect;
+use crate::stack_effects::StackEffect;
 use crate::state::State;
 
 #[derive(Debug, Clone, PartialEq)]

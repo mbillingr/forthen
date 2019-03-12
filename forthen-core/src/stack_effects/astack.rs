@@ -1,6 +1,7 @@
 use super::scratchpad::Scratchpad;
 use super::element::{Element, ElementRef};
 use super::effect::StackEffect;
+use super::sequence::normalized_sequence;
 use crate::errors::*;
 use std::sync::atomic::Ordering::SeqCst;
 use std::io::SeekFrom::Start;
@@ -30,6 +31,7 @@ impl AbstractStack {
 
         for i in inputs.into_iter().rev() {
             self.pop(i)?;
+            self.outputs = normalized_sequence(self.outputs.clone());
         }
 
         for o in outputs {

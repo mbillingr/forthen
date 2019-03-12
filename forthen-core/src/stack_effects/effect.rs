@@ -1,10 +1,12 @@
 use crate::errors::*;
 use crate::parsing::tokenize;
-use super::element::{ElementHash, ElementRef};
+use super::element::{ElementHash, Element, ElementRef};
 use super::parser::parse_effect;
 use super::scratchpad::Scratchpad;
 use super::sequence::{is_sequence_recursive_equivalent, normalized_sequence, sequence_recursive_deepcopy};
 use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
+use crate::stack_effects::astack::AbstractStack;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct StackEffect {
@@ -17,9 +19,28 @@ impl StackEffect {
         StackEffect {inputs, outputs}
     }
 
+    pub fn new_pushing(varname: &str) -> Self {
+        let r = ElementRef::anonymous_ellipsis();
+        Self::new(vec![r.clone()],
+                  vec![r.clone(), ElementRef::new(Element::Item(varname.to_string()))])
+    }
+
+    pub fn new_mod(varname: &str) -> Self {
+        let r = ElementRef::anonymous_ellipsis();
+        Self::new(vec![r.clone(), ElementRef::new(Element::Item(varname.to_string()))],
+                  vec![r.clone(), ElementRef::new(Element::Item(varname.to_string() + "'"))])
+    }
+
     pub fn parse(input: &str) -> Result<Self> {
         let scrpad = &mut Scratchpad::default();
         parse_effect(scrpad, &mut tokenize(input).peekable()).map_err(|e| e)
+    }
+
+    pub fn chain(&self, other: &Self) -> Result<StackEffect> {
+        let mut astack = AbstractStack::new();
+        astack.apply_effect(self)?;
+        astack.apply_effect(other)?;
+        Ok(astack.into_effect())
     }
 
     pub fn simplified(self) -> StackEffect {
@@ -91,5 +112,29 @@ impl std::fmt::Display for StackEffect {
 impl std::fmt::Debug for StackEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
+    }
+}
+
+impl FromIterator<StackEffect> for Result<StackEffect> {
+    fn from_iter<I: IntoIterator<Item=StackEffect>>(iter: I) -> Self {
+        let mut astack = AbstractStack::new();
+
+        for se in iter {
+            astack.apply_effect(&se)?;
+        }
+
+        Ok(astack.into_effect())
+    }
+}
+
+impl<'a> FromIterator<&'a StackEffect> for Result<StackEffect> {
+    fn from_iter<I: IntoIterator<Item=&'a StackEffect>>(iter: I) -> Self {
+        let mut astack = AbstractStack::new();
+
+        for se in iter {
+            astack.apply_effect(se)?;
+        }
+
+        Ok(astack.into_effect())
     }
 }
