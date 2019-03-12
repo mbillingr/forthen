@@ -4,10 +4,11 @@ use super::scratchpad::Scratchpad;
 use crate::errors::*;
 use std::ops::Deref;
 
-fn parse_effect<'a>(
+pub fn parse_effect<'a>(
     scratchpad: &mut Scratchpad,
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
 ) -> Result<StackEffect> {
+    println!("parsing effect...");
     assert_eq!(input.next(), Some("("));
     let mut inputs = parse_sequence(scratchpad, input, "--")?;
     let mut outputs = parse_sequence(scratchpad, input, ")")?;
@@ -30,7 +31,7 @@ fn parse_effect<'a>(
         }
     }
 
-    Ok(StackEffect { inputs, outputs })
+    Ok(StackEffect::new(inputs, outputs))
 }
 
 fn parse_quotation<'a>(
@@ -47,6 +48,7 @@ fn parse_sequence<'a>(
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     terminator: &str,
 ) -> Result<Vec<ElementRef>> {
+    println!("parsing sequence...");
     let mut sequence = vec![];
     while let Some(token) = input.next() {
         if token == terminator {
@@ -61,7 +63,9 @@ fn parse_sequence<'a>(
             Element::Item(token.to_string())
         };
 
-        let id = scratchpad.find_or_insert(element);
+        let id = scratchpad.find_or_insert(element.clone());
+        use std::collections::HashSet;
+        println!("looked for {:?} and found {:?}", element, id);
         sequence.push(id);
     }
 
@@ -79,24 +83,40 @@ mod tests {
         let swap = parse_effect(scrpad, &mut tokenize("(a b -- b a)").peekable()).unwrap();
 
         assert_eq!(
-            StackEffect {
-                inputs: vec![
+            StackEffect::new(vec![
                     scrpad.find_by_name("_").unwrap().clone(),
                     scrpad.find_by_name("a").unwrap().clone(),
                     scrpad.find_by_name("b").unwrap().clone()
                 ],
-                outputs: vec![
+                vec![
                     scrpad.find_by_name("_").unwrap().clone(),
                     scrpad.find_by_name("b").unwrap().clone(),
                     scrpad.find_by_name("a").unwrap().clone()
                 ],
-            },
+            ),
             swap
         );
     }
 
     #[test]
     fn parse_dup() {
+        let scrpad = &mut Scratchpad::default();
+        let dup = parse_effect(scrpad, &mut tokenize("(var -- var var)").peekable()).unwrap();
+
+        let r = scrpad.find_by_name("_").unwrap().clone();
+        let var = scrpad.find_by_name("var").unwrap().clone();
+
+        assert_eq!(
+            StackEffect::new(
+                vec![r.clone(), var.clone()],
+                vec![r.clone(), var.clone(), var.clone()],
+            ),
+            dup
+        );
+    }
+
+    #[test]
+    fn parse_call() {
         let scrpad = &mut Scratchpad::default();
         let call = parse_effect(
             scrpad,
@@ -108,29 +128,33 @@ mod tests {
         let b = scrpad.find_by_name("b").unwrap().clone();
         let f = scrpad.find_by_name("f").unwrap().clone();
 
+        if let Element::Callable(_, _) = *f.borrow() {
+        } else {
+            panic!("f should be a callable")
+        };
+
         assert_eq!(
-            StackEffect {
-                inputs: vec![a, f],
-                outputs: vec![b],
-            },
+            StackEffect::new(vec![a, f], vec![b]),
             call
         );
     }
 
     #[test]
-    fn parse_call() {
+    fn parse_recursion() {
         let scrpad = &mut Scratchpad::default();
-        let dup = parse_effect(scrpad, &mut tokenize("(var -- var var)").peekable()).unwrap();
+        let rec = parse_effect(scrpad, &mut tokenize("(..a f(..a f -- ) -- )").peekable()).unwrap();
 
-        let r = scrpad.find_by_name("_").unwrap().clone();
-        let var = scrpad.find_by_name("var").unwrap().clone();
+        let a = scrpad.find_by_name("a").unwrap().clone();
+        let f = scrpad.find_by_name("f").unwrap().clone();
 
-        assert_eq!(
-            StackEffect {
-                inputs: vec![r.clone(), var.clone()],
-                outputs: vec![r.clone(), var.clone(), var.clone()],
-            },
-            dup
-        );
+        let fx = StackEffect::new(vec![a, f.clone()], vec![]);
+
+        assert_eq!(fx, rec);
+
+        if let Element::Callable(_, ref f_sub) = *f.borrow() {
+            assert_eq!(&fx, f_sub);
+        } else {
+            panic!("{:?} is not callable", f)
+        };
     }
 }

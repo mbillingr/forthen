@@ -1,7 +1,9 @@
 use super::effect::StackEffect;
+use crate::errors::*;
 use std::cell::{Ref, RefCell};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct ElementRef {
@@ -19,6 +21,10 @@ impl ElementRef {
         self.node.borrow()
     }
 
+    pub fn borrow_mut(&self) -> impl DerefMut<Target = Element> + '_ {
+        self.node.borrow_mut()
+    }
+
     pub fn is_same(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.node, &other.node)
     }
@@ -26,7 +32,13 @@ impl ElementRef {
 
 impl std::fmt::Debug for ElementRef {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.node.borrow().fmt(f)
+        write!(f, "{:?}", self.node.borrow())
+    }
+}
+
+impl std::fmt::Display for ElementRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.node.borrow())
     }
 }
 
@@ -41,6 +53,7 @@ pub enum Element {
     Ellipsis(String),
     Item(String),
     Callable(String, StackEffect),
+    Sequence(Vec<ElementRef>),
 }
 
 impl Element {
@@ -56,26 +69,75 @@ impl Element {
         }
     }
 
-    pub fn simplified(&self) -> Self {
+    pub fn name(&self) -> Option<&str> {
         match self {
-            Element::Ellipsis(_) | Element::Item(_) => self.clone(),
-            Element::Callable(name, se) => Element::Callable(name.clone(), se.simplified()),
+            Element::Ellipsis(name) | Element::Item(name) | Element::Callable(name, _) => Some(name),
+            Element::Sequence(_) => None,
         }
     }
 
-    pub fn name(&self) -> &str {
-        match self {
-            Element::Ellipsis(name) | Element::Item(name) | Element::Callable(name, _) => name,
+    /// Put the more specific item in self and return the other.
+    /// Return an error if items are not compatible.
+    pub fn replace_if_more_specific(&mut self, mut other: Self) -> Result<Self> {
+        use Element::*;
+        match (&self, &mut other) {
+            (_, Ellipsis(_)) => { }
+            (Ellipsis(_), _) => std::mem::swap(self, &mut other),
+            (_, Item(_)) => { }
+            (Item(_), _) => std::mem::swap(self, &mut other),
+            (Callable(_, _), Callable(_, _)) => unimplemented!(),
+            (Sequence(_), Sequence(_)) => unimplemented!(),
+            (Callable(_, _), Sequence(_)) => return Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Sequence(_), Callable(_, _)) => return Err(ErrorKind::IncompatibleStackEffects.into()),
         }
+        Ok(other)
+    }
+
+    pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
+        match self {
+            Element::Ellipsis(name) => format!("..{}", name),
+            Element::Item(name) => format!("{}", name),
+            Element::Callable(name, se) => {
+                if seen.contains(name) {
+                    format!("{}(...)", name)
+                } else {
+                    seen.insert(name.clone());
+                    format!("{}({})", name, se.recursive_display(seen))
+                }
+            }
+            Element::Sequence(elements) => {
+                elements.iter().map(|ele| ele.borrow().recursive_display(seen)).collect::<Vec<_>>().join(" ")
+            }
+        }
+    }
+
+    pub fn recursive_dbgstr(&self, seen: &mut HashSet<String>) -> String {
+        match self {
+            Element::Ellipsis(name) => format!("Ellipsis({:?})", name),
+            Element::Item(name) => format!("Item({:?})", name),
+            Element::Callable(name, se) => {
+                if seen.contains(name) {
+                    format!("Callable({:?}, ...)", name)
+                } else {
+                    seen.insert(name.clone());
+                    format!("Callable({}, {})", name, se.recursive_dbgstr(seen))
+                }
+            }
+            Element::Sequence(elements) => {
+                elements.iter().map(|ele| ele.borrow().recursive_dbgstr(seen)).collect::<Vec<_>>().join(" ")
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for Element {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.recursive_display(&mut HashSet::new()))
     }
 }
 
 impl std::fmt::Debug for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.simplified() {
-            Element::Ellipsis(name) => write!(f, "..{}", name),
-            Element::Item(name) => write!(f, "{}", name),
-            Element::Callable(name, se) => write!(f, "{}({})", name, se),
-        }
+        write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
     }
 }

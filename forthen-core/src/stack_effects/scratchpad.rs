@@ -8,7 +8,12 @@ pub struct Scratchpad {
 impl Scratchpad {
     pub fn find_or_insert(&mut self, new_node: Element) -> ElementRef {
         for noderef in &self.elements {
-            if noderef.borrow().name() == new_node.name() {
+            if noderef.borrow().name() == new_node.name(){
+                // todo: handle specialization and substitution
+                //       e.g.  f( ... -- ... ) <-> f, and whatever
+
+                noderef.borrow_mut().replace_if_more_specific(new_node).unwrap();
+
                 return noderef.clone();
             }
         }
@@ -23,6 +28,6 @@ impl Scratchpad {
     }
 
     pub fn find_by_name(&self, name: &str) -> Option<&ElementRef> {
-        self.elements.iter().find(|e| e.borrow().name() == name)
+        self.elements.iter().find(|e| e.borrow().name() == Some(name))
     }
 }
