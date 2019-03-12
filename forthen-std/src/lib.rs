@@ -24,16 +24,21 @@ mod tests {
         state
             .run(
                 "
+                    : stash dup rot swap ;
+
                     :: factorial
                     1 +
                     1 set acc
                     [
                         1 - dup 0 ==
                         [ drop drop ]
-                        [ dup get acc * set acc swap dup rot swap call ] if
+                        [
+                            dup get acc * set acc
+                            swap stash call
+                        ]
+                        if
                     ]
-                    dup rot swap
-                    call
+                    stash call
                     get acc
                 ;",
             )
