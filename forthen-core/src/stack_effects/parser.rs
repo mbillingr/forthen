@@ -8,8 +8,6 @@ pub fn parse_effect<'a>(
     scratchpad: &mut Scratchpad,
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
 ) -> Result<StackEffect> {
-    println!("parsing effect...");
-    assert_eq!(input.next(), Some("("));
     let mut inputs = parse_sequence(scratchpad, input, "--")?;
     let mut outputs = parse_sequence(scratchpad, input, ")")?;
 
@@ -49,7 +47,6 @@ fn parse_sequence<'a>(
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
     terminator: &str,
 ) -> Result<Vec<ElementRef>> {
-    println!("parsing sequence...");
     let mut sequence = vec![];
     while let Some(token) = input.next() {
         if token == terminator {
@@ -66,7 +63,6 @@ fn parse_sequence<'a>(
 
         let id = scratchpad.update(element.clone());
         use std::collections::HashSet;
-        println!("looked for {:?} and found {:?}", element, id);
         sequence.push(id);
     }
 
