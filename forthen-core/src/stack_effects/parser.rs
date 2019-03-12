@@ -8,6 +8,7 @@ pub fn parse_effect<'a>(
     scratchpad: &mut Scratchpad,
     input: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
 ) -> Result<StackEffect> {
+    assert_eq!(input.next(), Some("("));
     let mut inputs = parse_sequence(scratchpad, input, "--")?;
     let mut outputs = parse_sequence(scratchpad, input, ")")?;
 
