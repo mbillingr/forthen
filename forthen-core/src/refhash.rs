@@ -12,12 +12,6 @@ impl<T> RefHash<T> {
     }
 }
 
-impl<T: std::fmt::Debug> RefHash<T> {
-    pub fn into_deref(self) -> T {
-        Rc::try_unwrap(self.inner).unwrap()
-    }
-}
-
 impl<T> Hash for RefHash<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let ptr = Rc::into_raw(self.inner.clone());

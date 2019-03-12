@@ -2,7 +2,7 @@ use super::effect::StackEffect;
 use super::sequence::sequence_recursive_deepcopy;
 use crate::errors::*;
 use crate::refhash::RefHash;
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
@@ -150,8 +150,8 @@ impl Element {
             (Item(_), Item(_)) => Ok(false),
             (Callable(_, _), Callable(_, _)) => Ok(false),
             (Sequence(_), Sequence(_)) => Ok(false),
-            (Callable(_, _), Sequence(_)) => return Err(ErrorKind::IncompatibleStackEffects.into()),
-            (Sequence(_), Callable(_, _)) => return Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Callable(_, _), Sequence(_)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Sequence(_), Callable(_, _)) => Err(ErrorKind::IncompatibleStackEffects.into()),
             // note the order of the ones below...
             (_, Ellipsis(_)) => Ok(false),
             (Ellipsis(_), _) => Ok(true),
@@ -163,7 +163,7 @@ impl Element {
     pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
         match self {
             Element::Ellipsis(name) => format!("..{}", name),
-            Element::Item(name) => format!("{}", name),
+            Element::Item(name) => name.to_string(),
             Element::Callable(name, se) => {
                 if seen.contains(name) {
                     format!("{}(...)", name)

@@ -3,7 +3,6 @@ use forthen_core::object_factory::StringManager;
 use forthen_core::objects::prelude::*;
 use forthen_core::CompilerScope;
 use forthen_core::Object;
-use forthen_core::StackEffect;
 use forthen_core::State;
 use forthen_core::{ByteCode, Opcode};
 use std::rc::Rc;

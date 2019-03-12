@@ -3,8 +3,6 @@ use super::element::{Element, ElementRef};
 use super::scratchpad::Scratchpad;
 use super::sequence::normalized_sequence;
 use crate::errors::*;
-use std::io::SeekFrom::Start;
-use std::sync::atomic::Ordering::SeqCst;
 
 #[derive(Debug, Clone)]
 pub struct AbstractStack {

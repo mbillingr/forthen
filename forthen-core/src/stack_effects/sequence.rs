@@ -1,4 +1,3 @@
-use super::effect::StackEffect;
 use super::element::{Element, ElementHash, ElementRef};
 use std::collections::HashMap;
 
@@ -41,13 +40,13 @@ pub fn is_sequence_recursive_equivalent(
     for (ea, eb) in a.iter().zip(b) {
         match mapping.get(&ea.addr()) {
             Some(aa) if aa == &eb.addr() => continue,
-            Some(aa) => return false,
+            Some(_) => return false,
             None => {}
         }
 
         match mapping.get(&eb.addr()) {
             Some(ab) if ab == &ea.addr() => continue,
-            Some(ab) => return false,
+            Some(_) => return false,
             None => {}
         }
 

@@ -41,7 +41,7 @@ impl Scratchpad {
     pub fn copy_effect(&mut self, se: &StackEffect) -> StackEffect {
         let mut mapping = HashMap::new();
         let new_se = se.recursive_deepcopy(&mut mapping);
-        self.elements.extend(mapping.into_iter().map(|(k, v)| v));
+        self.elements.extend(mapping.into_iter().map(|(_, v)| v));
         new_se
     }
 

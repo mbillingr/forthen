@@ -2,7 +2,6 @@ use super::effect::StackEffect;
 use super::element::{Element, ElementRef};
 use super::scratchpad::Scratchpad;
 use crate::errors::*;
-use std::ops::Deref;
 
 pub fn parse_effect<'a>(
     scratchpad: &mut Scratchpad,
@@ -63,7 +62,6 @@ fn parse_sequence<'a>(
         };
 
         let id = scratchpad.update(element.clone());
-        use std::collections::HashSet;
         sequence.push(id);
     }
 
