@@ -26,6 +26,10 @@ impl ElementRef {
         }
     }
 
+    pub fn addr(&self) -> usize {
+        &*self.node as *const _ as usize
+    }
+
     pub fn borrow(&self) -> impl Deref<Target = Element> + '_ {
         self.node.borrow()
     }

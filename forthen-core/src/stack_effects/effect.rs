@@ -1,11 +1,10 @@
 use crate::errors::*;
 use crate::parsing::tokenize;
-use super::comparison::is_sequence_equivalent;
 use super::element::ElementRef;
 use super::parser::parse_effect;
 use super::scratchpad::Scratchpad;
-use super::sequence::normalized_sequence;
-use std::collections::HashSet;
+use super::sequence::{is_sequence_recursive_equivalent, normalized_sequence};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Default, Clone, PartialEq)]
 pub struct StackEffect {
@@ -51,7 +50,12 @@ impl StackEffect {
     }
 
     pub fn is_equivalent(&self, other: &Self) -> bool {
-        is_sequence_equivalent(&self.inputs, &other.inputs) && is_sequence_equivalent(&self.outputs, &other.outputs)
+        let mut mapping = HashMap::new();
+        self.is_recursive_equivalent(other, &mut mapping)
+    }
+
+    pub fn is_recursive_equivalent(&self, other: &Self, mapping: &mut HashMap<usize, usize>) -> bool {
+        is_sequence_recursive_equivalent(&self.inputs, &other.inputs, mapping) && is_sequence_recursive_equivalent(&self.outputs, &other.outputs, mapping)
     }
 
     pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
