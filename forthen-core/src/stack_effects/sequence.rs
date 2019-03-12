@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use super::element::{Element, ElementRef};
+use super::element::{Element, ElementRef, ElementHash};
 use super::effect::StackEffect;
 
 pub fn normalized_sequence(seq: Vec<ElementRef>) -> Vec<ElementRef> {
@@ -58,4 +58,18 @@ pub fn is_sequence_recursive_equivalent(a: &[ElementRef], b: &[ElementRef], mapp
     }
 
     true
+}
+
+pub fn sequence_recursive_deepcopy(seq: &[ElementRef], mapping: &mut HashMap<ElementHash, ElementRef>) -> Vec<ElementRef> {
+    seq.iter()
+        .map(|x| {
+            let eh = x.clone().into();
+            if let Some(y) = mapping.get(&eh) {
+                y.clone()
+            } else {
+                let y = x.recursive_deepcopy(mapping);
+                mapping.insert(eh, y.clone());
+                y
+            }
+        }).collect()
 }

@@ -1,12 +1,14 @@
 use super::effect::StackEffect;
+use super::sequence::sequence_recursive_deepcopy;
 use crate::errors::*;
 use crate::refhash::RefHash;
 use std::cell::{Ref, RefCell};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-struct ElementHash(RefHash<RefCell<Element>>);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ElementHash(RefHash<RefCell<Element>>);
 
 impl From<ElementRef> for ElementHash {
     fn from(er: ElementRef) -> Self {
@@ -24,6 +26,10 @@ impl ElementRef {
         ElementRef {
             node: Rc::new(RefCell::new(el)),
         }
+    }
+
+    pub fn anonymous_ellipsis() -> Self {
+        Self::new(Element::Ellipsis("".into()))
     }
 
     pub fn addr(&self) -> usize {
@@ -46,9 +52,27 @@ impl ElementRef {
         Rc::ptr_eq(&self.node, &other.node)
     }
 
-    /*pub fn is_equivalent(&self, other: &Self) -> bool {
-        self.node.borrow().is_equivalent(&*other.node.borrow())
-    }*/
+    pub fn substitute(&self, new_content: Element) -> Element {
+        std::mem::replace(&mut *self.borrow_mut(), new_content)
+    }
+
+    pub fn recursive_deepcopy(&self, mapping: &mut HashMap<ElementHash, ElementRef>) -> Self {
+        let eh = self.clone().into();
+        if let Some(y) = mapping.get(&eh) {
+            return y.clone()
+        }
+
+        let new_el = match &*self.borrow() {
+            Element::Ellipsis(name) => Element::Ellipsis(name.clone()),
+            Element::Item(name) => Element::Item(name.clone()),
+            Element::Callable(name, se) => Element::Callable(name.clone(), se.recursive_deepcopy(mapping)),
+            Element::Sequence(seq) => Element::Sequence(sequence_recursive_deepcopy(seq, mapping)),
+        };
+
+        let y = Self::new(new_el);
+        mapping.insert(eh, y.clone());
+        y
+    }
 }
 
 impl std::fmt::Debug for ElementRef {
@@ -114,15 +138,23 @@ impl Element {
         Ok(other)
     }
 
-    /*pub fn is_equivalent(&self, other: &Self) -> bool {
+    /// return true if self is less specific than other
+    pub fn is_less_specific(&self, other: &Self) -> Result<bool> {
         use Element::*;
         match (self, other) {
-            (Ellipsis(_), Ellipsis(_)) => true,
-            (Item(_), Item(_)) => true,
-            (Callable(_, a), Callable(_, b)) => a.is_equivalent(b),
-            (Sequence(_), Sequence(_)) => is_se,
+            (Ellipsis(_), Ellipsis(_)) => Ok(false),
+            (Item(_), Item(_)) => Ok(false),
+            (Callable(_, _), Callable(_, _)) => Ok(false),
+            (Sequence(_), Sequence(_)) => Ok(false),
+            (Callable(_, _), Sequence(_)) => return Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Sequence(_), Callable(_, _)) => return Err(ErrorKind::IncompatibleStackEffects.into()),
+            // note the order of the ones below...
+            (_, Ellipsis(_)) => Ok(false),
+            (Ellipsis(_), _) => Ok(true),
+            (_, Item(_)) => Ok(false),
+            (Item(_), _) => Ok(true),
         }
-    }*/
+    }
 
     pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
         match self {

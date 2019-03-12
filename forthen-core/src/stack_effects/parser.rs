@@ -31,6 +31,7 @@ pub fn parse_effect<'a>(
         }
     }
 
+    // todo: I don't think it's necessary to normalize here because the parser should not generate nested sequences
     Ok(StackEffect::new(inputs, outputs).normalized())
 }
 
@@ -63,7 +64,7 @@ fn parse_sequence<'a>(
             Element::Item(token.to_string())
         };
 
-        let id = scratchpad.find_or_insert(element.clone());
+        let id = scratchpad.update(element.clone());
         use std::collections::HashSet;
         println!("looked for {:?} and found {:?}", element, id);
         sequence.push(id);

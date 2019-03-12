@@ -1,15 +1,15 @@
 use crate::errors::*;
 use crate::parsing::tokenize;
-use super::element::ElementRef;
+use super::element::{ElementHash, ElementRef};
 use super::parser::parse_effect;
 use super::scratchpad::Scratchpad;
-use super::sequence::{is_sequence_recursive_equivalent, normalized_sequence};
+use super::sequence::{is_sequence_recursive_equivalent, normalized_sequence, sequence_recursive_deepcopy};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Default, Clone, PartialEq)]
 pub struct StackEffect {
-    inputs: Vec<ElementRef>,
-    outputs: Vec<ElementRef>,
+    pub(crate) inputs: Vec<ElementRef>,
+    pub(crate) outputs: Vec<ElementRef>,
 }
 
 impl StackEffect {
@@ -56,6 +56,12 @@ impl StackEffect {
 
     pub fn is_recursive_equivalent(&self, other: &Self, mapping: &mut HashMap<usize, usize>) -> bool {
         is_sequence_recursive_equivalent(&self.inputs, &other.inputs, mapping) && is_sequence_recursive_equivalent(&self.outputs, &other.outputs, mapping)
+    }
+
+    pub fn recursive_deepcopy(&self, mapping: &mut HashMap<ElementHash, ElementRef>) -> Self {
+        let inputs = sequence_recursive_deepcopy(&self.inputs, mapping);
+        let outputs = sequence_recursive_deepcopy(&self.outputs, mapping);
+        StackEffect::new(inputs, outputs)
     }
 
     pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
