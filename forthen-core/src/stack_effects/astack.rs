@@ -31,12 +31,14 @@ impl AbstractStack {
 
         for i in inputs.into_iter().rev() {
             self.pop(i)?;
-            self.outputs = normalized_sequence(self.outputs.clone());
         }
 
         for o in outputs {
             self.push(o);
         }
+
+        self.inputs = normalized_sequence(self.inputs.clone());
+        self.outputs = normalized_sequence(self.outputs.clone());
 
         Ok(())
     }
@@ -55,15 +57,13 @@ impl AbstractStack {
         match self.outputs.pop() {
             None => panic!("Abstract Stack Underflow"),
             Some(x) =>{
-                match *x.borrow() {
-                    Element::Ellipsis(_) => {
-                        self.outputs.push(x.clone());
-                        self.inputs.insert(1, elem.clone());
-                        return Ok(elem)
-                    }
-                    _ => {}
+                if x.borrow().is_ellipsis() {
+                    self.outputs.push(x.clone());
+                    self.inputs.insert(1, elem.clone());
+                    Ok(elem)
+                } else {
+                    self.scratchpad.substitute(x, elem)
                 }
-                self.scratchpad.substitute(x, elem)
             }
         }
     }
@@ -90,6 +90,19 @@ mod tests {
 
         astack.apply_effect(&swap).unwrap();
         assert!(astack.clone().into_effect().is_equivalent(&nop));
+    }
+
+    #[test]
+    fn complex_chain() {
+        let mut astack = AbstractStack::new();
+
+        let dup = StackEffect::parse("(x -- x x)").unwrap();
+        let drop = StackEffect::parse("(z -- )").unwrap();
+        let swap = StackEffect::parse("(a b -- b a)").unwrap();
+
+        astack.apply_effect(&dup).unwrap();
+        astack.apply_effect(&drop).unwrap();
+        astack.apply_effect(&swap).unwrap();
     }
 
 }
