@@ -36,7 +36,6 @@ impl IntoStackEffect for String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -55,10 +54,7 @@ mod tests {
 
     #[test]
     fn equivalence_effects() {
-        assert_equivalent!(
-            StackEffect::parse("( -- )"),
-            StackEffect::parse("(--)")
-        );
+        assert_equivalent!(StackEffect::parse("( -- )"), StackEffect::parse("(--)"));
         assert_equivalent!(
             StackEffect::parse("(b -- b)"),
             StackEffect::parse("(a -- a)")
@@ -87,32 +83,32 @@ mod tests {
             StackEffect::parse("(a b -- b a b a)"),
             StackEffect::parse("(x -- y)")
         );
-        
+
         assert_equivalent!(
             StackEffect::parse("(..a f(..a -- ..b) -- ..b)"),
             StackEffect::parse("(..x g(..x -- ..y) -- ..y)")
         );
-        
+
         assert_not_equivalent!(
             StackEffect::parse("(..a f(..a z -- ..b) -- ..b)"),
             StackEffect::parse("(..x g(..x -- z ..y) -- ..y)")
         );
-        
+
         assert_equivalent!(
             StackEffect::parse("(f( f -- ) -- f )"),
             StackEffect::parse("(g( g -- ) -- g )")
         );
-        
+
         assert_equivalent!(
             StackEffect::parse("(f( f -- x( -- ) ) -- x )"),
             StackEffect::parse("(g( g -- y( -- ) ) -- y )")
         );
-        
+
         assert_not_equivalent!(
             StackEffect::parse("(f( f -- x( -- ) ) -- f )"),
             StackEffect::parse("(g( g -- y( -- ) ) -- y )")
         );
-        
+
         assert_not_equivalent!(
             StackEffect::parse("(f( f -- x( a -- a a ) ) -- x )"),
             StackEffect::parse("(g( g -- y( a -- a b ) ) -- y )")

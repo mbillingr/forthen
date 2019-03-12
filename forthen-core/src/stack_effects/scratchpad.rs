@@ -1,7 +1,7 @@
-use super::element::{Element, ElementRef};
 use super::effect::StackEffect;
-use std::collections::HashMap;
+use super::element::{Element, ElementRef};
 use crate::errors::*;
+use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
 pub struct Scratchpad {
@@ -11,8 +11,11 @@ pub struct Scratchpad {
 impl Scratchpad {
     pub fn update(&mut self, new_node: Element) -> ElementRef {
         for noderef in &self.elements {
-            if noderef.borrow().name() == new_node.name(){
-                noderef.borrow_mut().replace_if_more_specific(new_node).unwrap();
+            if noderef.borrow().name() == new_node.name() {
+                noderef
+                    .borrow_mut()
+                    .replace_if_more_specific(new_node)
+                    .unwrap();
                 return noderef.clone();
             }
         }
@@ -30,7 +33,9 @@ impl Scratchpad {
     }
 
     pub fn find_by_name(&self, name: &str) -> Option<&ElementRef> {
-        self.elements.iter().find(|e| e.borrow().name() == Some(name))
+        self.elements
+            .iter()
+            .find(|e| e.borrow().name() == Some(name))
     }
 
     pub fn copy_effect(&mut self, se: &StackEffect) -> StackEffect {

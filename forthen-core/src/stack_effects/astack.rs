@@ -1,10 +1,10 @@
-use super::scratchpad::Scratchpad;
-use super::element::{Element, ElementRef};
 use super::effect::StackEffect;
+use super::element::{Element, ElementRef};
+use super::scratchpad::Scratchpad;
 use super::sequence::normalized_sequence;
 use crate::errors::*;
-use std::sync::atomic::Ordering::SeqCst;
 use std::io::SeekFrom::Start;
+use std::sync::atomic::Ordering::SeqCst;
 
 #[derive(Debug, Clone)]
 pub struct AbstractStack {
@@ -27,7 +27,7 @@ impl AbstractStack {
     }
 
     pub fn apply_effect(&mut self, se: &StackEffect) -> Result<()> {
-        let StackEffect{inputs, outputs} = self.scratchpad.copy_effect(se);
+        let StackEffect { inputs, outputs } = self.scratchpad.copy_effect(se);
 
         for i in inputs.into_iter().rev() {
             self.pop(i)?;
@@ -51,12 +51,12 @@ impl AbstractStack {
         if elem.borrow().is_ellipsis() {
             let x = std::mem::replace(&mut self.outputs, vec![]);
             elem.substitute(Element::Sequence(x));
-            return Ok(elem)
+            return Ok(elem);
         }
 
         match self.outputs.pop() {
             None => panic!("Abstract Stack Underflow"),
-            Some(x) =>{
+            Some(x) => {
                 if x.borrow().is_ellipsis() {
                     self.outputs.push(x.clone());
                     self.inputs.insert(1, elem.clone());
@@ -72,7 +72,6 @@ impl AbstractStack {
         StackEffect::new(self.inputs, self.outputs).normalized()
     }
 }
-
 
 #[cfg(test)]
 mod tests {

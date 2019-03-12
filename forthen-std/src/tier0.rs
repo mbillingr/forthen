@@ -69,7 +69,11 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let quot = state.pop()?.try_into_rc_quotation()?;
 
-        let se = quot.ops.iter().map(Opcode::stack_effect).collect::<Result<_>>()?;
+        let se = quot
+            .ops
+            .iter()
+            .map(Opcode::stack_effect)
+            .collect::<Result<_>>()?;
 
         state.add_compound_word(name, se, quot);
         Ok(())
@@ -84,7 +88,11 @@ pub fn tier0(state: &mut State) -> Result<()> {
         }
         let quot = state.pop()?.try_into_rc_quotation()?;
 
-        let se = quot.ops.iter().map(Opcode::stack_effect).collect::<Result<_>>()?;
+        let se = quot
+            .ops
+            .iter()
+            .map(Opcode::stack_effect)
+            .collect::<Result<_>>()?;
 
         let obj = Object::Function(state.compile(quot, se));
         state
@@ -179,7 +187,11 @@ pub fn tier0(state: &mut State) -> Result<()> {
         quot.ops.push(Opcode::push_i32(n_vars));
         quot.ops.push(Opcode::call_word(pop_frame.clone()));
 
-        let se = quot.ops.iter().map(Opcode::stack_effect).collect::<Result<_>>()?;
+        let se = quot
+            .ops
+            .iter()
+            .map(Opcode::stack_effect)
+            .collect::<Result<_>>()?;
 
         state.add_compound_word(name, se, Rc::new(quot));
         Ok(())

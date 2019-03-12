@@ -81,7 +81,8 @@ mod tests {
         let swap = parse_effect(scrpad, &mut tokenize("(a b -- b a)").peekable()).unwrap();
 
         assert_eq!(
-            StackEffect::new(vec![
+            StackEffect::new(
+                vec![
                     scrpad.find_by_name("_").unwrap().clone(),
                     scrpad.find_by_name("a").unwrap().clone(),
                     scrpad.find_by_name("b").unwrap().clone()
@@ -131,10 +132,7 @@ mod tests {
             panic!("f should be a callable")
         };
 
-        assert_eq!(
-            StackEffect::new(vec![a, f], vec![b]),
-            call
-        );
+        assert_eq!(StackEffect::new(vec![a, f], vec![b]), call);
     }
 
     #[test]

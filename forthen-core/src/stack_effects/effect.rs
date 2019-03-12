@@ -1,12 +1,14 @@
-use crate::errors::*;
-use crate::parsing::tokenize;
-use super::element::{ElementHash, Element, ElementRef};
+use super::element::{Element, ElementHash, ElementRef};
 use super::parser::parse_effect;
 use super::scratchpad::Scratchpad;
-use super::sequence::{is_sequence_recursive_equivalent, normalized_sequence, sequence_recursive_deepcopy};
+use super::sequence::{
+    is_sequence_recursive_equivalent, normalized_sequence, sequence_recursive_deepcopy,
+};
+use crate::errors::*;
+use crate::parsing::tokenize;
+use crate::stack_effects::astack::AbstractStack;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use crate::stack_effects::astack::AbstractStack;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct StackEffect {
@@ -16,19 +18,32 @@ pub struct StackEffect {
 
 impl StackEffect {
     pub fn new(inputs: Vec<ElementRef>, outputs: Vec<ElementRef>) -> Self {
-        StackEffect {inputs, outputs}
+        StackEffect { inputs, outputs }
     }
 
     pub fn new_pushing(varname: &str) -> Self {
         let r = ElementRef::anonymous_ellipsis();
-        Self::new(vec![r.clone()],
-                  vec![r.clone(), ElementRef::new(Element::Item(varname.to_string()))])
+        Self::new(
+            vec![r.clone()],
+            vec![
+                r.clone(),
+                ElementRef::new(Element::Item(varname.to_string())),
+            ],
+        )
     }
 
     pub fn new_mod(varname: &str) -> Self {
         let r = ElementRef::anonymous_ellipsis();
-        Self::new(vec![r.clone(), ElementRef::new(Element::Item(varname.to_string()))],
-                  vec![r.clone(), ElementRef::new(Element::Item(varname.to_string() + "'"))])
+        Self::new(
+            vec![
+                r.clone(),
+                ElementRef::new(Element::Item(varname.to_string())),
+            ],
+            vec![
+                r.clone(),
+                ElementRef::new(Element::Item(varname.to_string() + "'")),
+            ],
+        )
     }
 
     pub fn parse(input: &str) -> Result<Self> {
@@ -67,7 +82,10 @@ impl StackEffect {
     }
 
     pub fn normalized(self) -> Self {
-        StackEffect::new(normalized_sequence(self.inputs), normalized_sequence(self.outputs))
+        StackEffect::new(
+            normalized_sequence(self.inputs),
+            normalized_sequence(self.outputs),
+        )
     }
 
     pub fn is_equivalent(&self, other: &Self) -> bool {
@@ -75,8 +93,13 @@ impl StackEffect {
         self.is_recursive_equivalent(other, &mut mapping)
     }
 
-    pub fn is_recursive_equivalent(&self, other: &Self, mapping: &mut HashMap<usize, usize>) -> bool {
-        is_sequence_recursive_equivalent(&self.inputs, &other.inputs, mapping) && is_sequence_recursive_equivalent(&self.outputs, &other.outputs, mapping)
+    pub fn is_recursive_equivalent(
+        &self,
+        other: &Self,
+        mapping: &mut HashMap<usize, usize>,
+    ) -> bool {
+        is_sequence_recursive_equivalent(&self.inputs, &other.inputs, mapping)
+            && is_sequence_recursive_equivalent(&self.outputs, &other.outputs, mapping)
     }
 
     pub fn recursive_deepcopy(&self, mapping: &mut HashMap<ElementHash, ElementRef>) -> Self {
@@ -88,16 +111,31 @@ impl StackEffect {
     pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
         let simple = self.clone().simplified();
 
-        let a: Vec<_> = simple.inputs.iter().map(|x| x.borrow().recursive_display(seen)).collect();
-        let b: Vec<_> = simple.outputs.iter().map(|x| x.borrow().recursive_display(seen)).collect();
+        let a: Vec<_> = simple
+            .inputs
+            .iter()
+            .map(|x| x.borrow().recursive_display(seen))
+            .collect();
+        let b: Vec<_> = simple
+            .outputs
+            .iter()
+            .map(|x| x.borrow().recursive_display(seen))
+            .collect();
 
         format!("{} -- {}", a.join(" "), b.join(" "))
     }
 
     pub fn recursive_dbgstr(&self, seen: &mut HashSet<String>) -> String {
-
-        let a: Vec<_> = self.inputs.iter().map(|x| x.borrow().recursive_dbgstr(seen)).collect();
-        let b: Vec<_> = self.outputs.iter().map(|x| x.borrow().recursive_dbgstr(seen)).collect();
+        let a: Vec<_> = self
+            .inputs
+            .iter()
+            .map(|x| x.borrow().recursive_dbgstr(seen))
+            .collect();
+        let b: Vec<_> = self
+            .outputs
+            .iter()
+            .map(|x| x.borrow().recursive_dbgstr(seen))
+            .collect();
 
         format!("StackEffect({} -- {})", a.join(", "), b.join(", "))
     }
@@ -116,7 +154,7 @@ impl std::fmt::Debug for StackEffect {
 }
 
 impl FromIterator<StackEffect> for Result<StackEffect> {
-    fn from_iter<I: IntoIterator<Item=StackEffect>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = StackEffect>>(iter: I) -> Self {
         let mut astack = AbstractStack::new();
 
         for se in iter {
@@ -128,7 +166,7 @@ impl FromIterator<StackEffect> for Result<StackEffect> {
 }
 
 impl<'a> FromIterator<&'a StackEffect> for Result<StackEffect> {
-    fn from_iter<I: IntoIterator<Item=&'a StackEffect>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = &'a StackEffect>>(iter: I) -> Self {
         let mut astack = AbstractStack::new();
 
         for se in iter {
