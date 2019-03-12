@@ -1,9 +1,18 @@
 use super::effect::StackEffect;
 use crate::errors::*;
+use crate::refhash::RefHash;
 use std::cell::{Ref, RefCell};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::collections::HashSet;
+
+struct ElementHash(RefHash<RefCell<Element>>);
+
+impl From<ElementRef> for ElementHash {
+    fn from(er: ElementRef) -> Self {
+        ElementHash(RefHash::new(er.node))
+    }
+}
 
 #[derive(Clone)]
 pub struct ElementRef {
@@ -25,9 +34,17 @@ impl ElementRef {
         self.node.borrow_mut()
     }
 
+    pub fn try_borrow_mut(&self) -> Option<impl DerefMut<Target = Element> + '_> {
+        self.node.try_borrow_mut().ok()
+    }
+
     pub fn is_same(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.node, &other.node)
     }
+
+    /*pub fn is_equivalent(&self, other: &Self) -> bool {
+        self.node.borrow().is_equivalent(&*other.node.borrow())
+    }*/
 }
 
 impl std::fmt::Debug for ElementRef {
@@ -92,6 +109,16 @@ impl Element {
         }
         Ok(other)
     }
+
+    /*pub fn is_equivalent(&self, other: &Self) -> bool {
+        use Element::*;
+        match (self, other) {
+            (Ellipsis(_), Ellipsis(_)) => true,
+            (Item(_), Item(_)) => true,
+            (Callable(_, a), Callable(_, b)) => a.is_equivalent(b),
+            (Sequence(_), Sequence(_)) => is_se,
+        }
+    }*/
 
     pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
         match self {

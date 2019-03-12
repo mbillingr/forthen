@@ -31,7 +31,7 @@ pub fn parse_effect<'a>(
         }
     }
 
-    Ok(StackEffect::new(inputs, outputs))
+    Ok(StackEffect::new(inputs, outputs).normalized())
 }
 
 fn parse_quotation<'a>(
