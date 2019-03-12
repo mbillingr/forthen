@@ -23,17 +23,24 @@ mod tests {
         ops(&mut state).unwrap();
         state
             .run(
-                ": recursive
-        [
-            1 - dup 0 ==
-            [ dup . swap dup rot swap drop ]
-            [ dup . swap dup rot swap call ] if
-        ]
-        dup rot swap
-        call ;",
+                "
+                    :: factorial
+                    1 +
+                    1 set acc
+                    [
+                        1 - dup 0 ==
+                        [ drop drop ]
+                        [ dup get acc * set acc swap dup rot swap call ] if
+                    ]
+                    dup rot swap
+                    call
+                    get acc
+                ;",
             )
             .unwrap();
-        //state.run("10 recursive").unwrap();
-        panic!()
+        state.run("\"guard\" 10 factorial").unwrap();
+
+        assert_eq!(3628800, state.pop_i32().unwrap());
+        assert_eq!("guard", state.pop_string().unwrap());
     }
 }
