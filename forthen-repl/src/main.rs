@@ -31,7 +31,7 @@ fn main() {
     scope(&mut state).unwrap();
     stack(&mut state).unwrap();
     ops(&mut state).unwrap();
-    class(&mut state).unwrap();
+    table(&mut state).unwrap();
 
     /*state.add_native_word("std:tier0", "( -- )", |state| tier0(state));
     state.add_native_word("std:tier1", "( -- )", |state| tier1(state));

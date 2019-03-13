@@ -5,12 +5,8 @@ use forthen_core::objects::{callable::Callable, prelude::*};
 use forthen_core::Opcode;
 use forthen_core::State;
 
-pub fn class(state: &mut State) -> Result<()> {
-    state.add_native_parse_word("None", |state| {
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::Push(Object::None));
-        Ok(())
-    });
+pub fn table(state: &mut State) -> Result<()> {
+    state.new_mod("table".to_string())?;
 
     state.add_native_word("{}", "( -- t)", |state| state.push(Object::new_table()));
 
@@ -114,13 +110,16 @@ pub fn class(state: &mut State) -> Result<()> {
         Ok(())
     });
 
+    state.exit_mod().unwrap();
+
     state.run(
         "
         MODULE complex
 
+        USE :ops:
         USE :scope:
         USE :stack:
-        USE :ops:
+        USE :table:
 
         :: cmul
             set d set c set b set a

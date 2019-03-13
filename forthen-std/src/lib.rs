@@ -1,11 +1,11 @@
-mod class;
+mod table;
 mod complex;
 mod ops;
 mod scope;
 mod tier0;
 mod stack;
 
-pub use class::class;
+pub use table::table;
 pub use complex::complex;
 pub use ops::ops;
 pub use scope::scope;
