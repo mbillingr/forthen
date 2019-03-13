@@ -116,6 +116,8 @@ pub fn class(state: &mut State) -> Result<()> {
 
     state.run(
         "
+        MODULE complex
+
         :: cmul
             set d set c set b set a
             get a get c * get b get d * -
@@ -165,6 +167,10 @@ pub fn class(state: &mut State) -> Result<()> {
             
             [ get_attr get call rot drop repr swap repr \", \" + swap + \"Complex(\" swap + \")\" + ] set_attr __repr__
         ;
+
+        END-MODULE
+
+        USE complex:Complex
     ",
     )?;
 
