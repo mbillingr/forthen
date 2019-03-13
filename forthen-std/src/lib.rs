@@ -1,16 +1,16 @@
-mod table;
 mod complex;
 mod ops;
 mod scope;
-mod tier0;
 mod stack;
+mod table;
+mod tier0;
 
-pub use table::table;
 pub use complex::complex;
 pub use ops::ops;
 pub use scope::scope;
-pub use tier0::tier0;
 pub use stack::stack;
+pub use table::table;
+pub use tier0::tier0;
 
 #[cfg(test)]
 mod tests {

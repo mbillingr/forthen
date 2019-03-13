@@ -2,7 +2,6 @@ use forthen_core::errors::Result;
 use forthen_core::objects::prelude::*;
 use forthen_core::State;
 
-
 pub fn stack(state: &mut State) -> Result<()> {
     state.new_mod("stack".to_string())?;
 

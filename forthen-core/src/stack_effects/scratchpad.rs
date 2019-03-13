@@ -32,12 +32,6 @@ impl Scratchpad {
         self.elements.push(node);
     }
 
-    pub fn find_by_name(&self, name: &str) -> Option<&ElementRef> {
-        self.elements
-            .iter()
-            .find(|e| e.borrow().name() == Some(name))
-    }
-
     pub fn copy_effect(&mut self, se: &StackEffect) -> StackEffect {
         let mut mapping = HashMap::new();
         let new_se = se.recursive_deepcopy(&mut mapping);
@@ -54,5 +48,14 @@ impl Scratchpad {
             b.substitute(Element::Sequence(vec![a]));
             Ok(b)
         }
+    }
+}
+
+#[cfg(test)]
+impl Scratchpad {
+    pub fn find_by_name(&self, name: &str) -> Option<&ElementRef> {
+        self.elements
+            .iter()
+            .find(|e| e.borrow().name() == Some(name))
     }
 }

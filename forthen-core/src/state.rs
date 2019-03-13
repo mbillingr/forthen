@@ -34,7 +34,7 @@ impl State {
             current_module: root_module.clone(),
             factory: ObjectFactory::new(),
             scopes: vec![],
-            root_module
+            root_module,
         }
     }
 
@@ -322,12 +322,18 @@ impl State {
         // from another module and cause havoc in the root. For now,
         // we simply panic in this case. Ignoring or warning might
         // be fine too...
-        self.add_native_parse_word("END-MODULE", |state| state.exit_mod().ok_or_else(|| panic!("Error: attempt to end root module")));
+        self.add_native_parse_word("END-MODULE", |state| {
+            state
+                .exit_mod()
+                .ok_or_else(|| panic!("Error: attempt to end root module"))
+        });
 
         Ok(())
     }
 
     pub fn exit_mod(&mut self) -> Option<()> {
-        self.current_module.parent().map(|parent| self.current_module = parent)
+        self.current_module
+            .parent()
+            .map(|parent| self.current_module = parent)
     }
 }

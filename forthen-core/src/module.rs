@@ -30,7 +30,9 @@ impl ModuleRef {
     pub fn access_path(&self, path: &str) -> Option<ModuleRef> {
         let mut split = path.splitn(2, ':');
 
-        let child = split.next().and_then(|head| self.0.borrow().submodules.get(head).cloned());
+        let child = split
+            .next()
+            .and_then(|head| self.0.borrow().submodules.get(head).cloned());
 
         match (child, split.next()) {
             (None, _) => None,

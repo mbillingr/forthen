@@ -2,8 +2,8 @@ use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
 use forthen_core::objects::prelude::*;
 use forthen_core::Object;
-use forthen_core::State;
 use forthen_core::Opcode;
+use forthen_core::State;
 
 /// Load language tier 0 into the dictionary
 ///
@@ -38,23 +38,25 @@ pub fn tier0(state: &mut State) -> Result<()> {
             &state.current_module
         };
 
-        let target_mod = relative
-            .access_path(path)
-            .ok_or(ErrorKind::PathError)?;
+        let target_mod = relative.access_path(path).ok_or(ErrorKind::PathError)?;
 
         if word != "" {
             let word_id = target_mod
                 .lookup(word)
-                .ok_or(ErrorKind::UnknownWord(fullpath))?;
+                .ok_or_else(|| ErrorKind::UnknownWord(fullpath))?;
 
-            state.current_module.insert_ref(word_id.name.clone(), word_id);
+            state
+                .current_module
+                .insert_ref(word_id.name.clone(), word_id);
         } else {
             for name in target_mod.local_keys() {
                 let word_id = target_mod
                     .lookup(&*name)
                     .ok_or_else(|| ErrorKind::UnknownWord(fullpath.clone()))?;
 
-                state.current_module.insert_ref(word_id.name.clone(), word_id);
+                state
+                    .current_module
+                    .insert_ref(word_id.name.clone(), word_id);
             }
         }
 
