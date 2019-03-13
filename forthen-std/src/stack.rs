@@ -2,11 +2,9 @@ use forthen_core::errors::Result;
 use forthen_core::objects::prelude::*;
 use forthen_core::State;
 
-/// Load language tier 1 into the dictionary
-///
-/// Tier 1 contains low level native words that form the basic building blocks of the language
-pub fn tier1(state: &mut State) -> Result<()> {
-    state.new_mod("tier1".to_string())?;
+
+pub fn stack(state: &mut State) -> Result<()> {
+    state.new_mod("stack".to_string())?;
 
     // development tools
     state.add_native_word(".s", "( -- )", |state| {
@@ -41,8 +39,8 @@ mod tests {
     fn stack_ops() {
         let state = &mut State::new();
         tier0(state).unwrap();
-        tier1(state).unwrap();
-        state.run("USE tier1:").unwrap();
+        stack(state).unwrap();
+        state.run("USE stack:").unwrap();
 
         state.run("123 456 swap").unwrap();
         state.assert_stack(&[456, 123]);

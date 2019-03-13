@@ -7,10 +7,10 @@ use rustyline::Editor;
 fn main() {
     let state = &mut State::new();
     tier0(state).unwrap();
-    tier1(state).unwrap();
+    stack(state).unwrap();
 
     //state.run("USE :tier0:").unwrap();
-    state.run("USE :tier1:").unwrap();
+    state.run("USE :stack:").unwrap();
 
     state.run("3 5 \"hello forth!\" .s").unwrap();
     state.run("3 5 \"hello forth!\" .s").unwrap();
@@ -29,7 +29,7 @@ fn main() {
     let mut state = State::new();
     tier0(&mut state).unwrap();
     scope(&mut state).unwrap();
-    tier1(&mut state).unwrap();
+    stack(&mut state).unwrap();
     ops(&mut state).unwrap();
     class(&mut state).unwrap();
 

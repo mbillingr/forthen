@@ -3,14 +3,14 @@ mod complex;
 mod ops;
 mod scope;
 mod tier0;
-mod tier1;
+mod stack;
 
 pub use class::class;
 pub use complex::complex;
 pub use ops::ops;
 pub use scope::scope;
 pub use tier0::tier0;
-pub use tier1::tier1;
+pub use stack::stack;
 
 #[cfg(test)]
 mod tests {
@@ -22,11 +22,11 @@ mod tests {
         let mut state = State::new();
         tier0(&mut state).unwrap();
         scope(&mut state).unwrap();
-        tier1(&mut state).unwrap();
+        stack(&mut state).unwrap();
         ops(&mut state).unwrap();
-        state.run("USE scope:").unwrap();
-        state.run("USE tier1:").unwrap();
         state.run("USE ops:").unwrap();
+        state.run("USE scope:").unwrap();
+        state.run("USE stack:").unwrap();
         state
             .run(
                 "
