@@ -308,6 +308,10 @@ impl State {
         self.push(a)
     }
 
+    pub fn root_module(&self) -> &ModuleRef {
+        &self.root_module
+    }
+
     pub fn new_mod(&mut self, name: String) -> Result<()> {
         let newmod = self.current_module.new_submodule(name);
         self.current_module = newmod;

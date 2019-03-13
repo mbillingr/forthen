@@ -31,9 +31,16 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let mut split = fullpath.rsplitn(2, ':');
         let word = split.next().ok_or(ErrorKind::PathError)?;
-        let path = split.next().ok_or(ErrorKind::PathError)?;
+        let mut path = split.next().ok_or(ErrorKind::PathError)?;
 
-        let target_mod = state.current_module
+        let relative = if path.starts_with(':') {
+            path = &path[1..];
+            state.root_module()
+        } else {
+            &state.current_module
+        };
+
+        let target_mod = relative
             .access_path(path)
             .ok_or(ErrorKind::PathError)?;
 
