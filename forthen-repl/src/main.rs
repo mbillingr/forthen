@@ -1,7 +1,7 @@
 use forthen_core::errors::*;
 use forthen_core::objects::prelude::*;
 use forthen_core::State;
-use forthen_std::{class, complex, ops, tier0, tier1};
+use forthen_std::{class, ops, tier0, tier1};
 use rustyline::Editor;
 
 fn main() {
@@ -30,7 +30,6 @@ fn main() {
     tier0(&mut state).unwrap();
     tier1(&mut state).unwrap();
     ops(&mut state).unwrap();
-    complex(&mut state).unwrap();
     class(&mut state).unwrap();
 
     /*state.add_native_word("std:tier0", "( -- )", |state| tier0(state));
