@@ -114,19 +114,36 @@ pub fn class(state: &mut State) -> Result<()> {
         Ok(())
     });
 
-    // todo: this version of the Complex word creates a new table each time it is called.
-    //       we need a way to define words that push a copy of the same value to the stack.
     state.run(
         "
+        :: cmul
+            set d set c set b set a
+            get a get c * get b get d * -
+            get a get d * get b get c * +
+        ;
+
+        : cbi
+            get_metatable
+            rot rot
+
+            get_attr get call
+            rot drop
+            rot
+            get_attr get call
+            rot drop
+        ;
+
+        : cnew
+            {}
+            swap set_metatable
+            swap set_attr imag
+            swap set_attr real
+        ;
+
         : class {} ;
 
         LET: Complex class
-            [
-                {}
-                swap set_metatable
-                1 set_attr real
-                2 set_attr imag
-            ] set_attr new
+            [ cnew ] set_attr new
 
             [
                 swap
@@ -143,32 +160,11 @@ pub fn class(state: &mut State) -> Result<()> {
                 rot swap
             ] set_attr get
 
-            [
-                get_metatable
-                rot rot
-
-                get_attr get call
-                rot drop
-                rot
-                get_attr get call
-                rot drop
-
-                rot +
-                rot rot +
-                swap
-
-                rot
-                {} swap
-                set_metatable
-
-                swap set_attr imag
-                swap set_attr real
-            ] set_attr __add__
-
+            [ cbi rot + rot rot + swap rot cnew ] set_attr __add__
+            [ cbi cmul rot cnew ] set_attr __mul__
+            
             [ get_attr get call rot drop repr swap repr \", \" + swap + \"Complex(\" swap + \")\" + ] set_attr __repr__
         ;
-
-        Complex get_attr new call
     ",
     )?;
 
