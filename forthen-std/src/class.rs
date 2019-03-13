@@ -118,8 +118,9 @@ pub fn class(state: &mut State) -> Result<()> {
         "
         MODULE complex
 
-        USE :ops:
+        USE :scope:
         USE :tier1:
+        USE :ops:
 
         :: cmul
             set d set c set b set a

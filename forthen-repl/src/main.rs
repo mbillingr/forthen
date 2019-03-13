@@ -1,7 +1,7 @@
 use forthen_core::errors::*;
 use forthen_core::objects::prelude::*;
 use forthen_core::State;
-use forthen_std::{class, ops, tier0, tier1};
+use forthen_std::*;
 use rustyline::Editor;
 
 fn main() {
@@ -28,6 +28,7 @@ fn main() {
 
     let mut state = State::new();
     tier0(&mut state).unwrap();
+    scope(&mut state).unwrap();
     tier1(&mut state).unwrap();
     ops(&mut state).unwrap();
     class(&mut state).unwrap();

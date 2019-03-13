@@ -35,10 +35,14 @@ pub fn tier1(state: &mut State) -> Result<()> {
 mod tests {
     use super::*;
 
+    use crate::tier0;
+
     #[test]
     fn stack_ops() {
         let state = &mut State::new();
+        tier0(state).unwrap();
         tier1(state).unwrap();
+        state.run("USE tier1:").unwrap();
 
         state.run("123 456 swap").unwrap();
         state.assert_stack(&[456, 123]);
