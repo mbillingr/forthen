@@ -102,6 +102,17 @@ pub fn tier0(state: &mut State) -> Result<()> {
         Ok(())
     });
 
+    state.add_native_parse_word("(", |state| {
+        loop {
+            match state.next_token() {
+                None => return Err(ErrorKind::EndOfInput.into()),
+                Some(ref token) if token == ")" => break,
+                Some(token) => {},
+            }
+        }
+        Ok(())
+    });
+
     state.add_native_word("push_frame", "(n -- )", |state| {
         let n = state.pop_i32()? as usize;
         state.frames.resize(n, Object::None);
