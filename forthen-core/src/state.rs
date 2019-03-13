@@ -307,4 +307,23 @@ impl State {
         self.push(c)?;
         self.push(a)
     }
+
+    pub fn new_mod(&mut self, name: String) -> Result<()> {
+        let newmod = self.current_module.new_submodule(name);
+        self.current_module = newmod;
+
+        // We define the END-MODULE word only in new submodules.
+        // This prevents accidentally ending the root module.
+        // However, someone could still sneakily import this function
+        // from another module and cause havoc in the root. For now,
+        // we simply panic in this case. Ignoring or warning might
+        // be fine too...
+        self.add_native_parse_word("END-MODULE", |state| state.exit_mod().ok_or_else(|| panic!("Error: attempt to end root module")));
+
+        Ok(())
+    }
+
+    pub fn exit_mod(&mut self) -> Option<()> {
+        self.current_module.parent().map(|parent| self.current_module = parent)
+    }
 }

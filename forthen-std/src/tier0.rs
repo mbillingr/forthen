@@ -23,25 +23,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
     state.add_native_parse_word("MODULE", |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
-        let newmod = state.current_module.new_submodule(name);
-        state.current_module = newmod;
-
-        // We define the END-MODULE word only in new submodules.
-        // This prevents accidentally ending the root module.
-        // However, someone could still sneakily import this function
-        // from another module and cause havoc in the root. For now,
-        // we simply panic in this case. Ignoring or warning might
-        // be fine too...
-        state.add_native_parse_word("END-MODULE", |state| {
-            if let Some(parent) = state.current_module.parent() {
-                state.current_module = parent;
-                Ok(())
-            } else {
-                panic!("Error: attempt to end root module")
-            }
-        });
-
-        Ok(())
+        state.new_mod(name)
     });
 
     state.add_native_parse_word("USE", |state| {
