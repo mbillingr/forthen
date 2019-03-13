@@ -9,6 +9,9 @@ fn main() {
     tier0(state).unwrap();
     tier1(state).unwrap();
 
+    //state.run("USE :tier0:").unwrap();
+    state.run("USE :tier1:").unwrap();
+
     state.run("3 5 \"hello forth!\" .s").unwrap();
     state.run("3 5 \"hello forth!\" .s").unwrap();
 

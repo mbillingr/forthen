@@ -4,6 +4,8 @@ use forthen_core::State;
 
 /// Load basic operations into the dictionary
 pub fn ops(state: &mut State) -> Result<()> {
+    state.new_mod("ops".to_string())?;
+
     state.add_native_word("repr", "(x -- s)", |state| state.pop()?.repr(state));
 
     state.add_native_word("same?", "(a b -- ?)", |state| {
@@ -30,6 +32,8 @@ pub fn ops(state: &mut State) -> Result<()> {
     state.add_native_word("-", "( a b -- diff )", |state| state.pop()?.sub(state));
     state.add_native_word("*", "( a b -- prod )", |state| state.pop()?.mul(state));
     state.add_native_word("/", "( a b -- quot )", |state| state.pop()?.div(state));
+
+    state.exit_mod().unwrap();
 
     Ok(())
 }

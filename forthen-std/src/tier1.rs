@@ -6,6 +6,8 @@ use forthen_core::State;
 ///
 /// Tier 1 contains low level native words that form the basic building blocks of the language
 pub fn tier1(state: &mut State) -> Result<()> {
+    state.new_mod("tier1".to_string())?;
+
     // development tools
     state.add_native_word(".s", "( -- )", |state| {
         println!("{:?}", state.stack);
@@ -23,6 +25,9 @@ pub fn tier1(state: &mut State) -> Result<()> {
     state.add_native_word("swap", "(a b -- b a)", State::swap);
     state.add_native_word("over", "(a b -- a b a)", State::over);
     state.add_native_word("rot", "(a b c -- b c a)", State::rot);
+
+    state.exit_mod().unwrap();
+
     Ok(())
 }
 
