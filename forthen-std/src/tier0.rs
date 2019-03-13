@@ -103,11 +103,13 @@ pub fn tier0(state: &mut State) -> Result<()> {
     });
 
     state.add_native_parse_word("(", |state| {
-        loop {
-            match state.next_token() {
+        let mut nesting = 1;
+        while nesting > 0 {
+            match state.next_token().as_ref().map(String::as_str) {
                 None => return Err(ErrorKind::EndOfInput.into()),
-                Some(ref token) if token == ")" => break,
-                Some(token) => {},
+                Some("(") => nesting += 1,
+                Some(")") => nesting -= 1,
+                Some(_) => {},
             }
         }
         Ok(())
