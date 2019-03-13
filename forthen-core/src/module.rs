@@ -26,8 +26,29 @@ impl ModuleRef {
 
         rcmod
     }
+
+    pub fn access_path(&self, path: &str) -> Option<ModuleRef> {
+        let mut split = path.splitn(2, ':');
+
+        let child = split.next().and_then(|head| self.0.borrow().submodules.get(head).cloned());
+
+        match (child, split.next()) {
+            (None, _) => None,
+            (child, None) => child,
+            (Some(c), Some(tail)) => c.access_path(tail),
+        }
+    }
+
+    pub fn parent(&self) -> Option<ModuleRef> {
+        self.0.borrow().parent.upgrade().map(ModuleRef)
+    }
+
     pub fn insert(&self, key: Rc<String>, val: Entry) {
         self.0.borrow_mut().insert(key, val)
+    }
+
+    pub fn insert_ref(&self, key: Rc<String>, val: WordId) {
+        self.0.borrow_mut().dict.insert_ref(key, val)
     }
 
     pub fn lookup(&self, key: &str) -> Option<WordId> {

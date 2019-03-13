@@ -21,6 +21,59 @@ pub fn tier0(state: &mut State) -> Result<()> {
         Ok(())
     });
 
+    state.add_native_parse_word("MODULE", |state| {
+        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        let newmod = state.current_module.new_submodule(name);
+        state.current_module = newmod;
+
+        // We define the END-MODULE word only in new submodules.
+        // This prevents accidentally ending the root module.
+        // However, someone could still sneakily import this function
+        // from another module and cause havoc in the root. For now,
+        // we simply panic in this case. Ignoring or warning might
+        // be fine too...
+        state.add_native_parse_word("END-MODULE", |state| {
+            if let Some(parent) = state.current_module.parent() {
+                state.current_module = parent;
+                Ok(())
+            } else {
+                panic!("Error: attempt to end root module")
+            }
+        });
+
+        Ok(())
+    });
+
+    state.add_native_parse_word("USE", |state| {
+        let fullpath = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+
+        let mut split = fullpath.rsplitn(2, ':');
+        let word = split.next().ok_or(ErrorKind::PathError)?;
+        let path = split.next().ok_or(ErrorKind::PathError)?;
+
+        let target_mod = state.current_module
+            .access_path(path)
+            .ok_or(ErrorKind::PathError)?;
+
+        if word != "" {
+            let word_id = target_mod
+                .lookup(word)
+                .ok_or(ErrorKind::UnknownWord(fullpath))?;
+
+            state.current_module.insert_ref(word_id.name.clone(), word_id);
+        } else {
+            for name in target_mod.local_keys() {
+                let word_id = target_mod
+                    .lookup(&*name)
+                    .ok_or_else(|| ErrorKind::UnknownWord(fullpath.clone()))?;
+
+                state.current_module.insert_ref(word_id.name.clone(), word_id);
+            }
+        }
+
+        Ok(())
+    });
+
     state.add_native_parse_word("SYNTAX:", |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         state.begin_compile();

@@ -8,6 +8,7 @@ error_chain! {
         UnexpectedDelimiter(t: &'static str) {
             display("Unexpected Delimiter: {:?}", t)
         }
+        PathError
 
         // stack effect errors
         IncompatibleStackEffects

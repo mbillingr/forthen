@@ -44,6 +44,10 @@ impl Dictionary {
         self.words.insert(key.into(), Rc::new(val));
     }
 
+    pub fn insert_ref(&mut self, key: Rc<String>, val: WordId) {
+        self.words.insert(key.into(), val);
+    }
+
     pub fn lookup(&self, key: &str) -> Option<&WordId> {
         self.words.get(key)
     }

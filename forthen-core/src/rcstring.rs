@@ -4,6 +4,13 @@ use std::rc::Rc;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct RcString(Rc<String>);
 
+impl std::ops::Deref for RcString {
+    type Target = str;
+    fn deref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 impl std::borrow::Borrow<str> for RcString {
     fn borrow(&self) -> &str {
         &self.0[..]

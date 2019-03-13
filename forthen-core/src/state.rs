@@ -20,18 +20,21 @@ pub struct State {
     pub factory: ObjectFactory,
     pub scopes: Vec<CompilerScope>,
     pub current_module: ModuleRef,
+    root_module: ModuleRef,
 }
 
 /// API
 impl State {
     pub fn new() -> Self {
+        let root_module = ModuleRef::new();
         State {
             input_tokens: VecDeque::new(),
             stack: vec![],
             frames: vec![],
-            current_module: ModuleRef::new(),
+            current_module: root_module.clone(),
             factory: ObjectFactory::new(),
             scopes: vec![],
+            root_module
         }
     }
 
