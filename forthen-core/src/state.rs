@@ -2,8 +2,9 @@ use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use crate::dictionary::{Dictionary, Entry, Word};
+use crate::dictionary::{Entry, Word};
 use crate::errors::*;
+use crate::module::ModuleRef;
 use crate::object_factory::{ObjectFactory, StringManager};
 use crate::objects::{callable::Callable, prelude::*};
 use crate::parsing::tokenize;
@@ -16,9 +17,9 @@ pub struct State {
     input_tokens: VecDeque<String>,
     pub stack: Vec<Object>,
     pub frames: Vec<Object>,
-    pub dictionary: Dictionary,
     pub factory: ObjectFactory,
     pub scopes: Vec<CompilerScope>,
+    pub current_module: ModuleRef,
 }
 
 /// API
@@ -28,7 +29,7 @@ impl State {
             input_tokens: VecDeque::new(),
             stack: vec![],
             frames: vec![],
-            dictionary: Dictionary::new(),
+            current_module: ModuleRef::new(),
             factory: ObjectFactory::new(),
             scopes: vec![],
         }
@@ -78,7 +79,7 @@ impl State {
         // todo: i don't know yet which takes up more time - parsing or lookup...
         //       so we always do them both now, and future profiling will show which to do first in the future
         let literal = self.factory.parse(&token);
-        let word = self.dictionary.lookup(&token);
+        let word = self.current_module.lookup(&token);
         match (literal, word) {
             (None, None) => return Err(ErrorKind::UnknownWord(token.to_string()).into()),
             (Some(_), Some(_)) => return Err(ErrorKind::AmbiguousWord(token.to_string()).into()),
@@ -107,7 +108,7 @@ impl State {
         ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
-        self.dictionary.insert(
+        self.current_module.insert(
             name.clone(),
             Entry {
                 name,
@@ -128,7 +129,7 @@ impl State {
         ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
-        self.dictionary.insert(
+        self.current_module.insert(
             name.clone(),
             Entry {
                 name,
@@ -156,7 +157,7 @@ impl State {
         ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
-        self.dictionary.insert(
+        self.current_module.insert(
             name.clone(),
             Entry {
                 name,
@@ -173,7 +174,7 @@ impl State {
         ObjectFactory: StringManager<S>,
     {
         let name = self.factory.get_string(name);
-        self.dictionary.insert(
+        self.current_module.insert(
             name.clone(),
             Entry {
                 name,
@@ -186,7 +187,7 @@ impl State {
     }
 
     pub fn format_word(&self, name: &str) {
-        let entry = self.dictionary.lookup(name);
+        let entry = self.current_module.lookup(name);
         match entry {
             None => println!("{:>20}  undefined!", name),
             Some(entry) => match entry.word.inner() {
@@ -208,7 +209,7 @@ impl State {
     }
 
     pub fn print_dictionary(&self) {
-        let mut words = self.dictionary.keys();
+        let mut words = self.current_module.keys();
         words.sort();
         for word in words {
             self.format_word(word.borrow());

@@ -3,6 +3,7 @@ extern crate error_chain;
 
 mod dictionary;
 pub mod errors;
+mod module;
 pub mod object_factory;
 pub mod objects;
 mod parsing;

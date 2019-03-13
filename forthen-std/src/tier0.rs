@@ -109,7 +109,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
                 None => return Err(ErrorKind::EndOfInput.into()),
                 Some("(") => nesting += 1,
                 Some(")") => nesting -= 1,
-                Some(_) => {},
+                Some(_) => {}
             }
         }
         Ok(())
@@ -143,10 +143,10 @@ pub fn tier0(state: &mut State) -> Result<()> {
         Ok(())
     });
 
-    let push_frame = state.dictionary.lookup("push_frame").unwrap().clone();
-    let pop_frame = state.dictionary.lookup("pop_frame").unwrap().clone();
-    let store = state.dictionary.lookup("store").unwrap().clone();
-    let fetch = state.dictionary.lookup("fetch").unwrap().clone();
+    let push_frame = state.current_module.lookup("push_frame").unwrap().clone();
+    let pop_frame = state.current_module.lookup("pop_frame").unwrap().clone();
+    let store = state.current_module.lookup("store").unwrap().clone();
+    let fetch = state.current_module.lookup("fetch").unwrap().clone();
 
     state.add_native_parse_word("set", move |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
