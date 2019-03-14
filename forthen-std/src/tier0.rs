@@ -230,9 +230,89 @@ mod tests {
     }
 
     #[test]
+    fn modules() {
+        let state = &mut State::new();
+        tier0(state).unwrap();
+
+        state.run(": in_root 1 ;").unwrap();
+
+        state.run("MODULE outer").unwrap();
+        state.run("    : in_outer 2 ;").unwrap();
+        state.run("    : use_same_module in_outer ;").unwrap();
+        state.run("    : use_parent_module in_root ;").unwrap();
+
+        // make sure we can run words defined in the current module
+        state.assert_run_pop("in_outer", &[2]);
+        state.assert_run_pop("use_same_module", &[2]);
+        state.assert_run_pop("use_parent_module", &[1]);
+        // make sure we can run words defined in outer modules
+        state.assert_run_pop("in_root", &[1]);
+
+        state.run("    MODULE inner").unwrap();
+        state.run("        : in_inner 3 ;").unwrap();
+        state.run("        : use_same_module in_inner ;").unwrap();
+        state.run("        : use_parent_module in_outer ;").unwrap();
+        state.run("        : use_root_module in_root ;").unwrap();
+
+        // make sure we can run words defined in the current module
+        state.assert_run_pop("in_inner", &[3]);
+        // make sure words in the inner module take precedence over words with the same name in higher modules
+        state.assert_run_pop("use_same_module", &[3]);
+        state.assert_run_pop("use_parent_module", &[2]);
+        state.assert_run_pop("use_root_module", &[1]);
+        // make sure we can run words in outer modules
+        state.assert_run_pop("in_outer", &[2]);
+        state.assert_run_pop("in_root", &[1]);
+
+        // use word from nested submodule given absolute path
+        state.run("USE outer:inner:in_inner").is_err();
+        state.run("USE :outer:inner:in_inner").unwrap();
+        state.assert_run_pop("in_inner", &[3]);
+
+        state.run("    END-MODULE").unwrap();
+
+        // make sure we can't access words inside submodules
+        assert!(state.run("in_inner").is_err());
+
+        // make sure words in the current module were not overwritten by the submodule
+        state.assert_run_pop("in_outer", &[2]);
+        state.assert_run_pop("use_same_module", &[2]);
+        state.assert_run_pop("use_parent_module", &[1]);
+
+        state.run("END-MODULE").unwrap();
+
+        // make sure we can't access words inside submodules
+        assert!(state.run("in_outer").is_err());
+        assert!(state.run("in_inner").is_err());
+
+        // use word from submodule
+        state.run("USE outer:in_outer").unwrap();
+        state.assert_run_pop("in_outer", &[2]);
+
+        // we should not be able to use a word from a nested submodule
+        state.run("USE outer:in_inner").is_err();
+        assert!(state.run("in_inner").is_err());
+
+        // use word from nested submodule
+        state.run("USE outer:inner:in_inner").unwrap();
+        state.assert_run_pop("in_inner", &[3]);
+
+        // use all words from nested submodule does not import from parent
+        state.run("USE outer:inner:").unwrap();
+        state.assert_run_pop("use_same_module", &[3]);
+        state.assert_run_pop("use_parent_module", &[2]);
+        state.assert_run_pop("use_root_module", &[1]);
+
+        // use all words from other submodule overwrites definitions
+        state.run("USE outer:").unwrap();
+        state.assert_run_pop("use_same_module", &[2]);
+        state.assert_run_pop("use_parent_module", &[1]);
+    }
+
+    #[test]
     fn quotations() {
         let state = &mut State::new();
-        tier0(state).unwrap();;
+        tier0(state).unwrap();
 
         state.run("123").unwrap();; // push sentinel value on stack
 

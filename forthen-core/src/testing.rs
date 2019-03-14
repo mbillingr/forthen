@@ -32,4 +32,19 @@ impl State {
             None => panic!("tried to pop {:?} from empty stack", expected),
         }
     }
+
+    pub fn assert_run_pop<T>(&mut self, cmd: &str, expected: &[T])
+    where
+        Object: std::cmp::PartialEq<T>,
+        T: Debug,
+    {
+        self.run(cmd).unwrap();
+
+        let mut stack_top: Vec<_> = (0..expected.len()).filter_map(|_| self.stack.pop()).collect();
+        stack_top.reverse();
+
+        if stack_top.len() != expected.len() || stack_top.iter().zip(expected).any(|(s, e)| s != e) {
+            panic!("Expected {:?} on top of stack but found {:?}", expected, stack_top);
+        }
+    }
 }
