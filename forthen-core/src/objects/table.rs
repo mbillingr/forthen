@@ -114,12 +114,12 @@ impl ObjectInterface for Table {
         self.attributes.get(attr).cloned()
     }
 
-    fn set_attribute(&mut self, _state: &mut State) -> Result<()> {
-        Err(ErrorKind::TypeError(format!(
-            "get/set attribute not implemented for {:?}",
-            self.repr_sys()
-        ))
-        .into())
+    fn set_attribute(&mut self, state: &mut State) -> Result<()> {
+        println!("{:?}", state.stack);
+        let value = state.pop()?;
+        let attr: RcString = state.pop()?.try_into_rc_string()?.into();
+        Rc::get_mut(self).ok_or(ErrorKind::OwnershipError)?.attributes.insert(attr, value);
+        Ok(())
     }
 
     fn get_attribute(&self, state: &mut State) -> Result<()> {

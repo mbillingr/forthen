@@ -84,6 +84,16 @@ pub fn table(state: &mut State) -> Result<()> {
         Ok(())
     });
 
+    state.add_native_word("set_attribute", "(t s v -- t)", |state| {
+        let value = state.pop()?;
+        let attr = state.pop()?;
+        let mut this = state.pop()?;
+        state.push(attr)?;
+        state.push(value)?;
+        this.set_attribute(state)?;
+        state.push(this)
+    });
+
     state.add_native_word("get_attribute", "(t s -- t v)", |state| {
         let attr = state.pop()?;
         let this = state.pop()?;
