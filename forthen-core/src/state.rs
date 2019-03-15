@@ -16,7 +16,7 @@ use crate::vm::{ByteCode, Opcode};
 pub struct State {
     input_tokens: VecDeque<String>,
     pub stack: Vec<Object>,
-    pub frames: Vec<Object>,
+    pub frames: Vec<Vec<Object>>,
     pub factory: ObjectFactory,
     pub scopes: Vec<CompilerScope>,
     pub current_module: ModuleRef,

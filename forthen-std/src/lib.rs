@@ -1,3 +1,4 @@
+mod brainfuck;
 mod complex;
 mod ops;
 mod scope;
@@ -5,6 +6,7 @@ mod stack;
 mod table;
 mod tier0;
 
+pub use brainfuck::brainfuck;
 pub use complex::complex;
 pub use ops::ops;
 pub use scope::scope;

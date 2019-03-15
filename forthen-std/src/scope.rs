@@ -13,28 +13,31 @@ pub fn scope(state: &mut State) -> Result<()> {
 
     state.add_native_word("push_frame", "(n -- )", |state| {
         let n = state.pop_i32()? as usize;
-        state.frames.resize(n, Object::None);
+        //state.frames.resize(n, Object::None);
+        state.frames.push(vec![Object::None; n]);
         Ok(())
     });
 
     state.add_native_word("pop_frame", "(n -- )", |state| {
         let n = state.pop_i32()? as usize;
-        state.frames.truncate(state.frames.len() - n);
+        //state.frames.truncate(state.frames.len() - n);
+        assert_eq!(n, state.frames.pop().unwrap().len());
         Ok(())
     });
 
     state.add_native_word("store", "(x addr -- )", |state| {
         let addr = state.pop_i32()? as usize;
-        let addr = state.frames.len() - addr - 1;
+        //let addr = state.frames.len() - addr - 1;
         let x = state.pop()?;
-        state.frames[addr] = x.clone();
+        //state.frames[addr] = x.clone();
+        state.frames.last_mut().unwrap()[addr] = x;
         Ok(())
     });
 
     state.add_native_word("fetch", "(addr -- x)", |state| {
         let addr = state.pop_i32()? as usize;
-        let addr = state.frames.len() - addr - 1;
-        let x = state.frames[addr].clone();
+        //let addr = state.frames.len() - addr - 1;
+        let x = state.frames.last_mut().unwrap()[addr].clone();
         state.push(x)?;
         Ok(())
     });
