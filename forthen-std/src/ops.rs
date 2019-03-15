@@ -6,6 +6,11 @@ use forthen_core::State;
 pub fn ops(state: &mut State) -> Result<()> {
     state.new_mod("ops".to_string())?;
 
+    state.add_native_word("emit", "(ch -- )", |state| {
+        print!("{}", std::char::from_u32(state.pop_i32()? as u32).ok_or("invalid character".to_string())?);
+        Ok(())
+    });
+
     state.add_native_word("repr", "(x -- s)", |state| state.pop()?.repr(state));
 
     state.add_native_word("same?", "(a b -- ?)", |state| {

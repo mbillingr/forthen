@@ -7,73 +7,21 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
         "
         MODULE brainfuck
 
+        USE :loop:
         USE :ops:
         USE :scope:
         USE :stack:
         USE :table:
 
-        MODULE utils
-            : stash dup rot swap ;
-            :: peek set c set b set a get a get b get c get a ;
-
-            (todo: it would be nice to hide the internals (callback, loop quotation) from the callee)
-            : for
-                swap
-                [
-                    1 -
-                    peek call
-                    dup 0 ==
-                    [ drop drop drop ]
-                    [
-                        swap stash call
-                    ]
-                    if
-                ]
-                stash call
-            ;
-
-            :: while
-                set callee
-                set cond
-                [
-                    get cond call
-                    [
-                        get callee call
-                        get loop call
-                    ]
-                    [ ]
-                    if
-                ]
-                set loop
-                get loop call
-            ;
-
-            :: init_cell
-                set idx
-                set loop
-                set callback
-
-                get idx repr 0 set_attribute
-
-                get callback
-                get loop
-                get idx
-            ;
-        END-MODULE
-
-        USE utils:for
-        USE utils:while
-        USE utils:init_cell
-
         (limitations:
             - no , command for input
             - individual commands must be separated by spaces because they are implemented as words
             - storing tape in a table because we lack arrays
-            - loops cause stack overflows, so we can't initialize more than 100 cells)
+            - need one more word to use quotations as [ ] loops )
 
         : init
             {}
-            100 [ init_cell ] for
+            0 30000 [ repr 0 set_attribute ] for
             0
         ;
 
@@ -84,10 +32,32 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
         : < 1 - ;
         : + query 1 + update ;
         : - query 1 - update ;
-        : . query . ;
+        : . query emit ;
 
         :: loop set inner [ query 0 != ] [ get inner call ] while ;
 
+
+        (Brainfuck Example)
+
+        init
+        + + + + + + + + + +
+        [
+          > + + + + + + + > + + + + + + + + + + > + + + > + < < < < -
+        ] loop
+        > + + .                              (H)
+        > + .                                (e)
+        + + + + + + + . .                    (ll)
+        + + + .                              (o)
+        > + + .                              ( )
+        < < + + + + + + + + + + + + + + + .  (W)
+        > .                                  (o)
+        + + + .                              (r)
+        - - - - - - .                        (l)
+        - - - - - - - - .                    (d)
+        > + .                                (!)
+        > .                                  (LF)
+        + + + .                              (CR)
+        drop drop
 
         END-MODULE
     ",
