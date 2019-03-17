@@ -108,33 +108,33 @@ impl StackEffect {
         StackEffect::new(inputs, outputs)
     }
 
-    pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
+    pub fn recursive_display(&self, seen: &mut HashSet<ElementHash>) -> String {
         let simple = self.clone().simplified();
 
         let a: Vec<_> = simple
             .inputs
             .iter()
-            .map(|x| x.borrow().recursive_display(seen))
+            .map(|x| x.recursive_display(seen))
             .collect();
         let b: Vec<_> = simple
             .outputs
             .iter()
-            .map(|x| x.borrow().recursive_display(seen))
+            .map(|x| x.recursive_display(seen))
             .collect();
 
         format!("{} -- {}", a.join(" "), b.join(" "))
     }
 
-    pub fn recursive_dbgstr(&self, seen: &mut HashSet<String>) -> String {
+    pub fn recursive_dbgstr(&self, seen: &mut HashSet<ElementHash>) -> String {
         let a: Vec<_> = self
             .inputs
             .iter()
-            .map(|x| x.borrow().recursive_dbgstr(seen))
+            .map(|x| x.recursive_dbgstr(seen))
             .collect();
         let b: Vec<_> = self
             .outputs
             .iter()
-            .map(|x| x.borrow().recursive_dbgstr(seen))
+            .map(|x| x.recursive_dbgstr(seen))
             .collect();
 
         format!("StackEffect({} -- {})", a.join(", "), b.join(", "))

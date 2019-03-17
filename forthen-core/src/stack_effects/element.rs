@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ElementHash(RefHash<RefCell<Element>>);
 
 impl From<ElementRef> for ElementHash {
@@ -75,17 +75,57 @@ impl ElementRef {
         mapping.insert(eh, y.clone());
         y
     }
-}
 
-impl std::fmt::Debug for ElementRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.node.borrow())
+    pub fn recursive_display(&self, seen: &mut HashSet<ElementHash>) -> String {
+        match &*self.borrow() {
+            Element::Ellipsis(name) => format!("..{}", name),
+            Element::Item(name) => name.to_string(),
+            Element::Callable(name, se) => {
+                if seen.contains(&self.clone().into()) {
+                    format!("{}(...)", name)
+                } else {
+                    seen.insert(self.clone().into());
+                    format!("{}({})", name, se.recursive_display(seen))
+                }
+            }
+            Element::Sequence(elements) => elements
+                .iter()
+                .map(|ele| ele.recursive_display(seen))
+                .collect::<Vec<_>>()
+                .join(" "),
+        }
+    }
+
+    pub fn recursive_dbgstr(&self, seen: &mut HashSet<ElementHash>) -> String {
+        match &*self.borrow() {
+            Element::Ellipsis(name) => format!("Ellipsis({:?})", name),
+            Element::Item(name) => format!("Item({:?})", name),
+            Element::Callable(name, se) => {
+                if seen.contains(&self.clone().into()) {
+                    format!("Callable({:?}, ...)", name)
+                } else {
+                    seen.insert(self.clone().into());
+                    format!("Callable({}, {})", name, se.recursive_dbgstr(seen))
+                }
+            }
+            Element::Sequence(elements) => elements
+                .iter()
+                .map(|ele| ele.recursive_dbgstr(seen))
+                .collect::<Vec<_>>()
+                .join(" "),
+        }
     }
 }
 
 impl std::fmt::Display for ElementRef {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.node.borrow())
+        write!(f, "{}", self.recursive_display(&mut HashSet::new()))
+    }
+}
+
+impl std::fmt::Debug for ElementRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
     }
 }
 
@@ -159,48 +199,8 @@ impl Element {
             (Item(_), _) => Ok(true),
         }
     }
-
-    pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
-        match self {
-            Element::Ellipsis(name) => format!("..{}", name),
-            Element::Item(name) => name.to_string(),
-            Element::Callable(name, se) => {
-                if seen.contains(name) {
-                    format!("{}(...)", name)
-                } else {
-                    seen.insert(name.clone());
-                    format!("{}({})", name, se.recursive_display(seen))
-                }
-            }
-            Element::Sequence(elements) => elements
-                .iter()
-                .map(|ele| ele.borrow().recursive_display(seen))
-                .collect::<Vec<_>>()
-                .join(" "),
-        }
-    }
-
-    pub fn recursive_dbgstr(&self, seen: &mut HashSet<String>) -> String {
-        match self {
-            Element::Ellipsis(name) => format!("Ellipsis({:?})", name),
-            Element::Item(name) => format!("Item({:?})", name),
-            Element::Callable(name, se) => {
-                if seen.contains(name) {
-                    format!("Callable({:?}, ...)", name)
-                } else {
-                    seen.insert(name.clone());
-                    format!("Callable({}, {})", name, se.recursive_dbgstr(seen))
-                }
-            }
-            Element::Sequence(elements) => elements
-                .iter()
-                .map(|ele| ele.borrow().recursive_dbgstr(seen))
-                .collect::<Vec<_>>()
-                .join(" "),
-        }
-    }
 }
-
+/*
 impl std::fmt::Display for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.recursive_display(&mut HashSet::new()))
@@ -211,4 +211,4 @@ impl std::fmt::Debug for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
     }
-}
+}*/
