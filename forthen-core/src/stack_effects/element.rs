@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::stack_effects::sequence::normalized_sequence;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ElementHash(RefHash<RefCell<Element>>);
@@ -52,8 +53,25 @@ impl ElementRef {
         Rc::ptr_eq(&self.node, &other.node)
     }
 
-    pub fn substitute(&self, new_content: Element) -> Element {
-        std::mem::replace(&mut *self.borrow_mut(), new_content)
+    pub fn flattened(self) -> Self {
+        if let Element::Sequence(s) = &*self.borrow() {
+            if s.len() == 1 {
+                return s[0].clone().flattened()
+            }
+        }
+        self
+    }
+
+    pub fn substitute(&self, mut new_content: Element) -> Element {
+
+        if let Element::Sequence(ref s) = new_content {
+            if s.len() == 1 && s[0].is_same(self) {
+                return new_content
+            }
+        }
+
+        let old = std::mem::replace(&mut *self.borrow_mut(), new_content);
+        old
     }
 
     pub fn recursive_deepcopy(&self, mapping: &mut HashMap<ElementHash, ElementRef>) -> Self {
@@ -108,11 +126,11 @@ impl ElementRef {
                     format!("Callable({}, {})", name, se.recursive_dbgstr(seen))
                 }
             }
-            Element::Sequence(elements) => elements
+            Element::Sequence(elements) => format!("[{}]", elements
                 .iter()
                 .map(|ele| ele.recursive_dbgstr(seen))
                 .collect::<Vec<_>>()
-                .join(" "),
+                .join(" ")),
         }
     }
 }
@@ -144,6 +162,14 @@ pub enum Element {
 }
 
 impl Element {
+    pub fn flattened(self) -> Self {
+        if let Element::Sequence(s) = self {
+            Element::Sequence(normalized_sequence(s))
+        } else {
+            self
+        }
+    }
+
     pub fn is_same(&self, other: &Self) -> bool {
         std::ptr::eq(self, other)
     }

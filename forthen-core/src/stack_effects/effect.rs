@@ -53,9 +53,13 @@ impl StackEffect {
 
     pub fn chain(&self, other: &Self) -> Result<StackEffect> {
         let mut astack = AbstractStack::new();
+        println!("New abstract stack...");
+        println!("applying {}", self);
         astack.apply_effect(self)?;
+        println!("applying {}", other);
         astack.apply_effect(other)?;
-        Ok(astack.into_effect())
+        dbg!(&astack);
+        Ok(dbg!(astack.into_effect()))
     }
 
     pub fn simplified(self) -> StackEffect {
