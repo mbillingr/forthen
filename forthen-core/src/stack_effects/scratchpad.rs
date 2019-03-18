@@ -45,7 +45,7 @@ impl Scratchpad {
     pub fn substitute(&mut self, a: ElementRef, b: ElementRef) -> Result<ElementRef> {
         use Element::*;
 
-        println!("substituting items:\n    {:?}\n    {:?}", a, b);
+        //println!("substituting items:\n    {:?}\n    {:?}", a, b);
 
         if b.borrow().is_less_specific(&a.borrow())? {
             return self.substitute(b, a)
@@ -77,7 +77,7 @@ impl Scratchpad {
         let a = normalized_sequence(a);
         let b = normalized_sequence(b);
 
-        println!("substituting sequences:\n    {:?}\n    {:?}", a, b);
+        //println!("substituting sequences:\n    {:?}\n    {:?}", a, b);
 
         match (a.len(), b.len()) {
             (0, 0) => return Ok(()),
@@ -88,27 +88,27 @@ impl Scratchpad {
         let (a_left, a_right) = a.split_at(a.len() - 1);
         let (b_left, b_right) = b.split_at(b.len() - 1);
 
-        println!("{:?} {:?} : {:?} {:?}", a_left, a_right, b_left, b_right);
+        //println!("{:?} {:?} : {:?} {:?}", a_left, a_right, b_left, b_right);
 
         if !a_right[0].is_same(&b_right[0]) {
-            println!("running {:?} <-> {:?}", a_right[0], b_right[0]);
+            //println!("running {:?} <-> {:?}", a_right[0], b_right[0]);
 
             if a_right[0].borrow().is_ellipsis() {
                 a_right[0].substitute(Sequence(b.to_vec()).flattened())?;
-                println!("OK");
+                //println!("OK");
                 return Ok(())
             }
 
             if b_right[0].borrow().is_ellipsis() {
-                println!("{:?}", a.to_vec());
+                //println!("{:?}", a.to_vec());
                 b_right[0].substitute(Sequence(a.to_vec()).flattened())?;
-                println!("OK");
+                //println!("OK");
                 return Ok(())
             }
-            println!("..");
+            //println!("..");
 
             self.substitute(a_right[0].clone(), b_right[0].clone())?;
-            println!("OK");
+            //println!("OK");
         }
 
         self.substitute_sequences(a_left.to_vec(), b_left.to_vec())
