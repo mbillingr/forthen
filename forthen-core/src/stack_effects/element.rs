@@ -62,16 +62,22 @@ impl ElementRef {
         self
     }
 
-    pub fn substitute(&self, mut new_content: Element) -> Element {
+    pub fn substitute(&self, mut new_content: Element) -> Result<Element> {
 
         if let Element::Sequence(ref s) = new_content {
             if s.len() == 1 && s[0].is_same(self) {
-                return new_content
+                return Ok(new_content)
+            }
+
+            if s.iter().any(|item| item.is_same(self)) {
+                return Err(ErrorKind::InfiniteSubstitution.into())
             }
         }
 
+        println!("substituting: {} := {:?}", self, new_content);
+
         let old = std::mem::replace(&mut *self.borrow_mut(), new_content);
-        old
+        Ok(old)
     }
 
     pub fn recursive_deepcopy(&self, mapping: &mut HashMap<ElementHash, ElementRef>) -> Self {
@@ -153,7 +159,7 @@ impl std::cmp::PartialEq for ElementRef {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Element {
     Ellipsis(String),
     Item(String),

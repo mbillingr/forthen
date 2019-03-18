@@ -12,6 +12,7 @@ error_chain! {
 
         // stack effect errors
         IncompatibleStackEffects
+        InfiniteSubstitution
 
         // language errors
         AmbiguousWord(word: String) {

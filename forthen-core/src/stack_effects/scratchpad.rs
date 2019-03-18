@@ -65,7 +65,7 @@ impl Scratchpad {
             _ => {}
         }
 
-        a.substitute(Element::Sequence(vec![b]));
+        a.substitute(Element::Sequence(vec![b]))?;
         Ok(a)
     }
 
@@ -87,14 +87,14 @@ impl Scratchpad {
             println!("running {:?} <- {:?}", a_right[0], b_right[0]);
 
             if a_right[0].borrow().is_ellipsis() {
-                a_right[0].substitute(Sequence(b.to_vec()).flattened());
+                a_right[0].substitute(Sequence(b.to_vec()).flattened())?;
                 println!("OK");
                 return Ok(())
             }
 
             if b_right[0].borrow().is_ellipsis() {
                 println!("{:?}", a.to_vec());
-                b_right[0].substitute(Sequence(a.to_vec()).flattened());
+                b_right[0].substitute(Sequence(a.to_vec()).flattened())?;
                 println!("OK");
                 return Ok(())
             }
