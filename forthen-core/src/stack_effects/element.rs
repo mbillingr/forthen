@@ -63,8 +63,10 @@ impl ElementRef {
     }
 
     pub fn substitute(&self, mut new_content: Element) -> Result<Element> {
+        debug_assert!(!self.borrow().is_sequence());
 
-        if let Element::Sequence(ref s) = new_content {
+        if let Element::Sequence(ref mut s) = new_content {
+            *s = normalized_sequence(s.clone());
             if s.len() == 1 && s[0].is_same(self) {
                 return Ok(new_content)
             }
@@ -72,9 +74,13 @@ impl ElementRef {
             if s.iter().any(|item| item.is_same(self)) {
                 return Err(ErrorKind::InfiniteSubstitution.into())
             }
+
+            if s.len() > 1 && !self.borrow().is_ellipsis() {
+                panic!("Attempt to substitute something other than an ellipsis with a sequence: {:?} := {:?}", self, new_content)
+            }
         }
 
-        println!("substituting: {} := {:?}", self, new_content);
+        println!("substituting: {:?} := {:?}", self, new_content);
 
         let old = std::mem::replace(&mut *self.borrow_mut(), new_content);
         Ok(old)
@@ -188,6 +194,14 @@ impl Element {
         }
     }
 
+    pub fn is_sequence(&self) -> bool {
+        if let Element::Sequence(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn name(&self) -> Option<&str> {
         match self {
             Element::Ellipsis(name) | Element::Item(name) | Element::Callable(name, _) => {
@@ -218,7 +232,7 @@ impl Element {
     pub fn is_less_specific(&self, other: &Self) -> Result<bool> {
         use Element::*;
         match (self, other) {
-            (Ellipsis(_), Ellipsis(_)) => Ok(false),
+            /*(Ellipsis(_), Ellipsis(_)) => Ok(false),
             (Item(_), Item(_)) => Ok(false),
             (Callable(_, _), Callable(_, _)) => Ok(false),
             (Sequence(_), Sequence(_)) => Ok(false),
@@ -228,7 +242,27 @@ impl Element {
             (_, Ellipsis(_)) => Ok(false),
             (Ellipsis(_), _) => Ok(true),
             (_, Item(_)) => Ok(false),
-            (Item(_), _) => Ok(true),
+            (Item(_), _) => Ok(true),*/
+
+            (Ellipsis(_), Ellipsis(_)) => Ok(false),
+            (Ellipsis(_), Item(_)) => Ok(true),
+            (Ellipsis(_), Callable(_, _)) => Ok(true),
+            (Ellipsis(_), Sequence(_)) => Ok(true),
+
+            (Item(_), Ellipsis(_)) => Ok(false),
+            (Item(_), Item(_)) => Ok(false),
+            (Item(_), Callable(_, _)) => Ok(true),
+            (Item(_), Sequence(_)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+
+            (Callable(_, _), Ellipsis(_)) => Ok(false),
+            (Callable(_, _), Item(_)) => Ok(false),
+            (Callable(_, _), Callable(_, _)) => Ok(false),
+            (Callable(_, _), Sequence(_)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+
+            (Sequence(_), Ellipsis(_)) => Ok(false),
+            (Sequence(_), Item(_)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Sequence(_), Callable(_, _)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Sequence(_), Sequence(_)) => Ok(false),
         }
     }
 }

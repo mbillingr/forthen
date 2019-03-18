@@ -126,6 +126,7 @@ mod tests {
         let no = "(..d -- ..d f(..c -- ..c n))".into_stack_effect();
         let put = "(..d -- ..d f(..c -- ..c p))".into_stack_effect();
         let drop = "(..d -- ..d f(..c x -- ..c))".into_stack_effect();
+        let replace = "(..d -- ..d f(..c u v -- ..c w))".into_stack_effect();
 
         assert!(yes.chain(&no).unwrap().chain(&sfx).unwrap().is_equivalent(&"(cond -- value)".into_stack_effect()));
         assert!(drop.chain(&drop).unwrap().chain(&sfx).unwrap().is_equivalent(&"(x ? -- )".into_stack_effect()));
@@ -138,5 +139,10 @@ mod tests {
         if let Ok(_) = drop.chain(&put).unwrap().chain(&sfx) {
             panic!("Expected Error")
         }
+
+        println!("{:?}", replace.chain(&drop).unwrap().chain(&sfx).unwrap());
+        panic!();
+
+        assert!(drop.chain(&replace).unwrap().chain(&sfx).unwrap().is_equivalent(&"(? x y -- z)".into_stack_effect()));
     }
 }

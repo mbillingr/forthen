@@ -32,6 +32,17 @@ impl StackEffect {
         )
     }
 
+    pub fn new_quoted(varname: &str, se: StackEffect) -> Self {
+        let r = ElementRef::anonymous_ellipsis();
+        Self::new(
+            vec![r.clone()],
+            vec![
+                r.clone(),
+                ElementRef::new(Element::Callable(varname.to_string(), se)),
+            ],
+        )
+    }
+
     pub fn new_mod(varname: &str) -> Self {
         let r = ElementRef::anonymous_ellipsis();
         Self::new(

@@ -292,7 +292,7 @@ impl ObjectInterface for Object {
             Object::Word(id) => id.word.inner().get_stack_effect(),
             Object::Function(f) => Ok(f.get_stack_effect()),
             Object::Table(dynobj) => dynobj.get_stack_effect(),
-            _ => panic!("{:?} is not callable", self),
+            _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
 

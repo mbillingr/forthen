@@ -45,6 +45,8 @@ impl Scratchpad {
     pub fn substitute(&mut self, a: ElementRef, b: ElementRef) -> Result<ElementRef> {
         use Element::*;
 
+        println!("substituting items:\n    {:?}\n    {:?}", a, b);
+
         if b.borrow().is_less_specific(&a.borrow())? {
             return self.substitute(b, a)
         }
@@ -55,12 +57,12 @@ impl Scratchpad {
                 sea.outputs = normalized_sequence(sea.outputs.clone());
                 seb.inputs = normalized_sequence(seb.inputs.clone());
                 seb.outputs = normalized_sequence(seb.outputs.clone());
-                self.substitute_sequences(&sea.inputs, &seb.inputs)?;
-                self.substitute_sequences(&sea.outputs, &seb.outputs)?;
+                self.substitute_sequences(sea.inputs.clone(), seb.inputs.clone())?;
+                self.substitute_sequences(sea.outputs.clone(), seb.outputs.clone())?;
             }
             (Sequence(sa), Sequence(sb)) => {
                 panic!();
-                self.substitute_sequences(&sa, &sb)?;
+                self.substitute_sequences(sa.clone(), sb.clone())?;
             }
             _ => {}
         }
@@ -69,8 +71,13 @@ impl Scratchpad {
         Ok(a)
     }
 
-    fn substitute_sequences(&mut self, a: &[ElementRef], b: &[ElementRef]) -> Result<()> {
+    fn substitute_sequences(&mut self, a: Vec<ElementRef>, b: Vec<ElementRef>) -> Result<()> {
         use Element::*;
+
+        let a = normalized_sequence(a);
+        let b = normalized_sequence(b);
+
+        println!("substituting sequences:\n    {:?}\n    {:?}", a, b);
 
         match (a.len(), b.len()) {
             (0, 0) => return Ok(()),
@@ -84,7 +91,7 @@ impl Scratchpad {
         println!("{:?} {:?} : {:?} {:?}", a_left, a_right, b_left, b_right);
 
         if !a_right[0].is_same(&b_right[0]) {
-            println!("running {:?} <- {:?}", a_right[0], b_right[0]);
+            println!("running {:?} <-> {:?}", a_right[0], b_right[0]);
 
             if a_right[0].borrow().is_ellipsis() {
                 a_right[0].substitute(Sequence(b.to_vec()).flattened())?;
@@ -101,9 +108,10 @@ impl Scratchpad {
             println!("..");
 
             self.substitute(a_right[0].clone(), b_right[0].clone())?;
+            println!("OK");
         }
 
-        self.substitute_sequences(a_left, b_left)
+        self.substitute_sequences(a_left.to_vec(), b_left.to_vec())
     }
 }
 
