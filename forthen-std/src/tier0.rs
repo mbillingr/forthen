@@ -4,6 +4,7 @@ use forthen_core::objects::prelude::*;
 use forthen_core::Object;
 use forthen_core::Opcode;
 use forthen_core::State;
+use forthen_core::{StackEffect, IntoStackEffect};
 
 /// Load language tier 0 into the dictionary
 ///
@@ -101,6 +102,15 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
+        let mut se = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        if se != "(" {return Err(ErrorKind::ExpectedStackEffect.into())}
+        loop {
+            let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+            se += " ";
+            se += &token;
+            if token == ")" {break}
+        }
+
         state.begin_compile();
 
         if let Err(e) = state.parse_until(";") {
@@ -110,13 +120,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let quot = state.pop()?.try_into_rc_quotation()?;
 
-        let se = quot
-            .ops
-            .iter()
-            .map(Opcode::stack_effect)
-            .collect::<Result<_>>()?;
-
-        state.add_compound_word(name, se, quot);
+        state.add_compound_word(name, se.into_stack_effect(), quot);
         Ok(())
     });
 

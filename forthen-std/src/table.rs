@@ -121,13 +121,13 @@ pub fn table(state: &mut State) -> Result<()> {
         USE :stack:
         USE :table:
 
-        :: cmul
+        :: cmul (a b c d -- r i)
             set d set c set b set a
             get a get c * get b get d * -
             get a get d * get b get c * +
         ;
 
-        : cbi
+        : cbi (self -- self r i)
             get_metatable
             rot rot
 
@@ -138,14 +138,14 @@ pub fn table(state: &mut State) -> Result<()> {
             rot drop
         ;
 
-        : cnew
+        : cnew (r i cls -- self)
             {}
             swap set_metatable
             swap set_attr imag
             swap set_attr real
         ;
 
-        : class {} ;
+        : class ( -- cls) {} ;
 
         LET: Complex class
             [ cnew ] set_attr new

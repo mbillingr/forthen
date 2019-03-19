@@ -15,12 +15,12 @@ fn main() {
     state.run("3 5 \"hello forth!\" .s").unwrap();
     state.run("3 5 \"hello forth!\" .s").unwrap();
 
-    state.run(": the-answer 42 ;").unwrap();
+    state.run(": the-answer ( -- x) 42 ;").unwrap();
     state.run("the-answer .s").unwrap();
 
-    state.run(": more-answers the-answer the-answer ;").unwrap();
-    state.run(": 2dup over over ;").unwrap();
-    state.run(": stackfun swap 2dup swap ;").unwrap();
+    state.run(": more-answers ( -- x y) the-answer the-answer ;").unwrap();
+    state.run(": 2dup (a b -- a b a b) over over ;").unwrap();
+    state.run(": stackfun (a b -- b a a b) swap 2dup swap ;").unwrap();
 
     println!("{:#?}", state);
 

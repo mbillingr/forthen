@@ -9,6 +9,7 @@ error_chain! {
             display("Unexpected Delimiter: {:?}", t)
         }
         PathError
+        ExpectedStackEffect
 
         // stack effect errors
         IncompatibleStackEffects
