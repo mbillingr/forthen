@@ -115,11 +115,9 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::Word(Object::Function(Callable::new_const(
-                    func,
-                    stack_effect.into_stack_effect(),
-                ))),
+                word: Word::Word(Object::Function(Callable::new_const(func))),
                 source: None,
+                stack_effect: stack_effect.into_stack_effect(),
             },
         );
     }
@@ -136,19 +134,17 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::ParsingWord(Object::Function(Callable::new_const(
-                    func,
-                    StackEffect::new_mod("acc"),
-                ))),
+                word: Word::ParsingWord(Object::Function(Callable::new_const(func))),
                 source: None,
+                stack_effect: StackEffect::new_mod("acc"),
             },
         );
     }
 
     // todo: this function should almost certainly not be here at this place...
-    pub fn compile(&self, quot: Rc<ByteCode>, se: StackEffect) -> Callable {
+    pub fn compile(&self, quot: Rc<ByteCode>) -> Callable {
         // todo: a word made of pure words only should become a pure word too
-        Callable::new_const(move |state| quot.run(state), se)
+        Callable::new_const(move |state| quot.run(state))
     }
 
     pub fn add_compound_word<S>(
@@ -165,9 +161,8 @@ impl State {
             Entry {
                 name,
                 source: Some(quot.clone()),
-                word: Word::Word(Object::Function(
-                    self.compile(quot, stack_effect.into_stack_effect()),
-                )),
+                word: Word::Word(Object::Function(self.compile(quot))),
+                stack_effect: stack_effect.into_stack_effect(),
             },
         );
     }
@@ -182,9 +177,8 @@ impl State {
             Entry {
                 name,
                 source: Some(quot.clone()),
-                word: Word::ParsingWord(Object::Function(
-                    self.compile(quot, StackEffect::new_mod("acc")),
-                )),
+                word: Word::ParsingWord(Object::Function(self.compile(quot))),
+                stack_effect: StackEffect::new_mod("acc"),
             },
         );
     }
@@ -202,7 +196,7 @@ impl State {
                     println!(
                         "{:>20}   {:50}   {}",
                         entry.name,
-                        format!("({})", ca.get_stack_effect()),
+                        format!("({})", entry.stack_effect),
                         func
                     )
                 }

@@ -5,27 +5,6 @@ use forthen_std::*;
 use rustyline::Editor;
 
 fn main() {
-    let state = &mut State::new();
-    tier0(state).unwrap();
-    stack(state).unwrap();
-
-    //state.run("USE :tier0:").unwrap();
-    state.run("USE :stack:").unwrap();
-
-    state.run("3 5 \"hello forth!\" .s").unwrap();
-    state.run("3 5 \"hello forth!\" .s").unwrap();
-
-    state.run(": the-answer 42 ;").unwrap();
-    state.run("the-answer .s").unwrap();
-
-    state.run(": more-answers the-answer the-answer ;").unwrap();
-    state.run(": 2dup over over ;").unwrap();
-    state.run(": stackfun swap 2dup swap ;").unwrap();
-
-    println!("{:#?}", state);
-
-    // --------------------
-
     let mut state = State::new();
     tier0(&mut state).unwrap();
     scope(&mut state).unwrap();

@@ -6,9 +6,7 @@ use super::sequence::{
 };
 use crate::errors::*;
 use crate::parsing::tokenize;
-use crate::stack_effects::astack::AbstractStack;
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct StackEffect {
@@ -60,17 +58,6 @@ impl StackEffect {
     pub fn parse(input: &str) -> Result<Self> {
         let scrpad = &mut Scratchpad::default();
         parse_effect(scrpad, &mut tokenize(input).peekable()).map_err(|e| e)
-    }
-
-    pub fn chain(&self, other: &Self) -> Result<StackEffect> {
-        let mut astack = AbstractStack::new();
-        println!("New abstract stack...");
-        println!("applying {}", self);
-        astack.apply_effect(self)?;
-        println!("applying {}", other);
-        astack.apply_effect(other)?;
-        dbg!(&astack);
-        Ok(dbg!(astack.into_effect()))
     }
 
     pub fn simplified(self) -> StackEffect {
@@ -165,29 +152,5 @@ impl std::fmt::Display for StackEffect {
 impl std::fmt::Debug for StackEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
-    }
-}
-
-impl FromIterator<StackEffect> for Result<StackEffect> {
-    fn from_iter<I: IntoIterator<Item = StackEffect>>(iter: I) -> Self {
-        let mut astack = AbstractStack::new();
-
-        for se in iter {
-            astack.apply_effect(&se)?;
-        }
-
-        Ok(astack.into_effect())
-    }
-}
-
-impl<'a> FromIterator<&'a StackEffect> for Result<StackEffect> {
-    fn from_iter<I: IntoIterator<Item = &'a StackEffect>>(iter: I) -> Self {
-        let mut astack = AbstractStack::new();
-
-        for se in iter {
-            astack.apply_effect(se)?;
-        }
-
-        Ok(astack.into_effect())
     }
 }

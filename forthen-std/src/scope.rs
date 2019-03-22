@@ -71,6 +71,19 @@ pub fn scope(state: &mut State) -> Result<()> {
 
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
+        let mut se = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        if se != "(" {
+            return Err(ErrorKind::ExpectedStackEffect.into());
+        }
+        loop {
+            let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+            se += " ";
+            se += &token;
+            if token == ")" {
+                break;
+            }
+        }
+
         state.scopes.push(CompilerScope::new());
 
         state.begin_compile();
@@ -94,12 +107,6 @@ pub fn scope(state: &mut State) -> Result<()> {
         );
         quot.ops.push(Opcode::push_i32(n_vars));
         quot.ops.push(Opcode::call_word(pop_frame.clone()));
-
-        let se = quot
-            .ops
-            .iter()
-            .map(Opcode::stack_effect)
-            .collect::<Result<_>>()?;
 
         state.add_compound_word(name, se, Rc::new(quot));
         Ok(())
@@ -125,15 +132,19 @@ mod tests {
 
         state.run("123").unwrap(); // push sentinel value on stack
 
-        state.run(":: dup   set x get x get x ;").unwrap();
-        state.run(":: swap   set x set y get x get y ;").unwrap();
         state
-            .run(":: over   set b set a get a get b get a ;")
+            .run(":: dup   (x -- x x)   set x get x get x ;")
             .unwrap();
         state
-            .run(":: rot   set c set b set a get b get c get a  ;")
+            .run(":: swap   (x y -- y x)   set x set y get x get y ;")
             .unwrap();
-        state.run(":: drop   set x ;").unwrap();
+        state
+            .run(":: over   (a b -- a b a)   set b set a get a get b get a ;")
+            .unwrap();
+        state
+            .run(":: rot   (a b c -- b c a)   set c set b set a get b get c get a  ;")
+            .unwrap();
+        state.run(":: drop   (x -- )   set x ;").unwrap();
 
         state.run("42 dup").unwrap();
         state.assert_pop(42);

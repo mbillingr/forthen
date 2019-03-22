@@ -5,7 +5,6 @@ use crate::dictionary::WordId;
 use crate::errors::*;
 use crate::object_factory::StringManager;
 use crate::objects::table::TableImpl;
-use crate::stack_effects::StackEffect;
 use crate::state::State;
 use crate::vm::ByteCode;
 use std::any::Any;
@@ -284,15 +283,6 @@ impl ObjectInterface for Object {
             Object::List(_) => true,
             Object::Table(dynobj) => dynobj.is_sequence(),
             _ => false,
-        }
-    }
-
-    fn get_stack_effect(&self) -> Result<&StackEffect> {
-        match self {
-            Object::Word(id) => id.word.inner().get_stack_effect(),
-            Object::Function(f) => Ok(f.get_stack_effect()),
-            Object::Table(dynobj) => dynobj.get_stack_effect(),
-            _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
 

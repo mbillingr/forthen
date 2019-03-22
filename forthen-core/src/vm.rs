@@ -1,7 +1,6 @@
 use crate::dictionary::WordId;
 use crate::errors::Result;
 use crate::objects::{callable::Callable, prelude::*, Object};
-use crate::stack_effects::StackEffect;
 use crate::state::State;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,21 +22,6 @@ impl Opcode {
 
     pub fn call_direct(ca: Callable) -> Self {
         Opcode::CallDirect(ca)
-    }
-
-    pub fn stack_effect(&self) -> StackEffect {
-        use Opcode::*;
-        match self {
-            Push(x) => {
-                match x.get_stack_effect() {
-                    Ok(se) => StackEffect::new_quoted("f", se.clone()),
-                    Err(_) => StackEffect::new_pushing("x"),
-                }                
-            }
-            Call(obj) => obj.get_stack_effect().unwrap().clone(),
-            CallDirect(ca) => ca.get_stack_effect().clone(),
-            TailRecurse => unimplemented!(),
-        }
     }
 }
 

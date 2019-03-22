@@ -32,9 +32,9 @@ mod tests {
         state
             .run(
                 "
-                    : stash dup rot swap ;
+                    : stash (y x -- x y x) dup rot swap ;
 
-                    :: factorial
+                    :: factorial   (x -- x)
                     1 +
                     1 set acc
                     [

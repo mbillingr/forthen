@@ -2,11 +2,11 @@ use super::effect::StackEffect;
 use super::sequence::sequence_recursive_deepcopy;
 use crate::errors::*;
 use crate::refhash::RefHash;
+use crate::stack_effects::sequence::normalized_sequence;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::stack_effects::sequence::normalized_sequence;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ElementHash(RefHash<RefCell<Element>>);
@@ -56,7 +56,7 @@ impl ElementRef {
     pub fn flattened(self) -> Self {
         if let Element::Sequence(s) = &*self.borrow() {
             if s.len() == 1 {
-                return s[0].clone().flattened()
+                return s[0].clone().flattened();
             }
         }
         self
@@ -68,11 +68,11 @@ impl ElementRef {
         if let Element::Sequence(ref mut s) = new_content {
             *s = normalized_sequence(s.clone());
             if s.len() == 1 && s[0].is_same(self) {
-                return Ok(new_content)
+                return Ok(new_content);
             }
 
             if s.iter().any(|item| item.is_same(self)) {
-                return Err(ErrorKind::InfiniteSubstitution.into())
+                return Err(ErrorKind::InfiniteSubstitution.into());
             }
 
             if s.len() > 1 && !self.borrow().is_ellipsis() {
@@ -138,11 +138,14 @@ impl ElementRef {
                     format!("Callable({}, {})", name, se.recursive_dbgstr(seen))
                 }
             }
-            Element::Sequence(elements) => format!("[{}]", elements
-                .iter()
-                .map(|ele| ele.recursive_dbgstr(seen))
-                .collect::<Vec<_>>()
-                .join(" ")),
+            Element::Sequence(elements) => format!(
+                "[{}]",
+                elements
+                    .iter()
+                    .map(|ele| ele.recursive_dbgstr(seen))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
         }
     }
 }
@@ -243,7 +246,6 @@ impl Element {
             (Ellipsis(_), _) => Ok(true),
             (_, Item(_)) => Ok(false),
             (Item(_), _) => Ok(true),*/
-
             (Ellipsis(_), Ellipsis(_)) => Ok(false),
             (Ellipsis(_), Item(_)) => Ok(true),
             (Ellipsis(_), Callable(_, _)) => Ok(true),
