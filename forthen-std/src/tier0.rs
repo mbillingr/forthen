@@ -1,8 +1,6 @@
 use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
 use forthen_core::objects::prelude::*;
-use forthen_core::Object;
-use forthen_core::Opcode;
 use forthen_core::State;
 
 /// Load language tier 0 into the dictionary
@@ -73,7 +71,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         }
 
         let obj = state.pop()?;
-        state.add_compound_parse_word(name, obj.try_into_rc_quotation()?);
+        state.add_compound_parse_word(name, obj);
         Ok(())
     });
 
@@ -121,7 +119,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
             return Err(e);
         }
 
-        let quot = state.pop()?.try_into_rc_quotation()?;
+        let quot = state.pop()?;
 
         state.add_compound_word(name, se, quot);
         Ok(())
@@ -134,14 +132,10 @@ pub fn tier0(state: &mut State) -> Result<()> {
             state.pop().unwrap();
             return Err(e);
         }
-        let quot = state.pop()?.try_into_rc_quotation()?;
 
-        let obj = Object::Function(state.compile(quot));
-        state
-            .top_mut()?
-            .try_as_quotation_mut()?
-            .ops
-            .push(Opcode::Push(obj));
+        let code = state.pop()?;
+
+        state.top_mut()?.as_vec_mut()?.push(code);
         Ok(())
     });
 

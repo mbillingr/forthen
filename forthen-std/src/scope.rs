@@ -1,8 +1,8 @@
 use forthen_core::errors::*;
+use forthen_core::objects::prelude::*;
 use forthen_core::CompilerScope;
 use forthen_core::Object;
 use forthen_core::State;
-use forthen_core::{ByteCode, Opcode};
 use std::rc::Rc;
 
 /// Load language tier 0 into the dictionary
@@ -49,9 +49,9 @@ pub fn scope(state: &mut State) -> Result<()> {
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::push_i32(i));
-        instructions.ops.push(Opcode::call_word(store.clone()));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(i.into());
+        instructions.push(Object::Word(store.clone()));
         Ok(())
     });
 
@@ -60,9 +60,9 @@ pub fn scope(state: &mut State) -> Result<()> {
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::push_i32(i));
-        instructions.ops.push(Opcode::call_word(fetch.clone()));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(i.into());
+        instructions.push(Object::Word(fetch.clone()));
         Ok(())
     });
 
@@ -97,18 +97,16 @@ pub fn scope(state: &mut State) -> Result<()> {
         let scope = state.scopes.pop().unwrap();
         let n_vars = scope.len() as i32;
 
-        let mut quot = ByteCode::new();
-        quot.ops.push(Opcode::push_i32(n_vars));
-        quot.ops.push(Opcode::call_word(push_frame.clone()));
-        quot.ops.extend(
-            Rc::try_unwrap(state.pop()?.try_into_rc_quotation()?)
-                .or(Err(ErrorKind::OwnershipError))?
-                .ops,
+        let mut quot = Vec::new();
+        quot.push(n_vars.into());
+        quot.push(Object::Word(push_frame.clone()));
+        quot.extend(
+            Rc::try_unwrap(state.pop()?.into_rc_vec()?).or(Err(ErrorKind::OwnershipError))?,
         );
-        quot.ops.push(Opcode::push_i32(n_vars));
-        quot.ops.push(Opcode::call_word(pop_frame.clone()));
+        quot.push(n_vars.into());
+        quot.push(Object::Word(pop_frame.clone()));
 
-        state.add_compound_word(name, se, Rc::new(quot));
+        state.add_compound_word(name, se, Object::List(Rc::new(quot)));
         Ok(())
     });
 

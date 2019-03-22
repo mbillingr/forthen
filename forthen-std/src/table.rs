@@ -2,7 +2,6 @@ use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
 use forthen_core::objects::object::Object;
 use forthen_core::objects::{callable::Callable, prelude::*};
-use forthen_core::Opcode;
 use forthen_core::State;
 
 pub fn table(state: &mut State) -> Result<()> {
@@ -36,8 +35,8 @@ pub fn table(state: &mut State) -> Result<()> {
             Ok(())
         });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(set_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(set_func));
         Ok(())
     });
 
@@ -53,8 +52,8 @@ pub fn table(state: &mut State) -> Result<()> {
             state.push(value)
         });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(get_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(get_func));
         Ok(())
     });
 
@@ -70,8 +69,8 @@ pub fn table(state: &mut State) -> Result<()> {
             state.swap()
         });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(get_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(get_func));
         Ok(())
     });
 
@@ -93,8 +92,8 @@ pub fn table(state: &mut State) -> Result<()> {
             None => state.push(Object::False),
         });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(get_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(get_func));
         Ok(())
     });
 

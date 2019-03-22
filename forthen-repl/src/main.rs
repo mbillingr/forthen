@@ -4,6 +4,8 @@ use forthen_core::State;
 use forthen_std::*;
 use rustyline::Editor;
 
+use error_chain::ChainedError;
+
 fn main() {
     let mut state = State::new();
     tier0(&mut state).unwrap();
@@ -78,5 +80,6 @@ fn print_stack(state: &mut State, max_len: usize) {
 }
 
 fn report_error(e: Error) {
-    eprintln!("{}", e)
+    eprintln!("{}", e);
+    eprintln!("{}", e.display_chain().to_string());
 }

@@ -292,6 +292,16 @@ impl ObjectInterface for Object {
             Object::Function(f) => f.call(state),
             Object::ByteCode(code) => code.run(state),
             Object::Table(dynobj) => dynobj.call(state),
+            Object::List(list) => {
+                for item in &**list {
+                    if item.is_callable() {
+                        item.call(state)?;
+                    } else {
+                        state.push(item.clone())?;
+                    }
+                }
+                Ok(())
+            }
             _ => Err(ErrorKind::TypeError(format!("{:?} is not callable", self)).into()),
         }
     }
