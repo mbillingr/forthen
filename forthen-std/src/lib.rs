@@ -1,3 +1,4 @@
+mod branch;
 mod complex;
 mod loops;
 mod ops;
@@ -6,6 +7,7 @@ mod stack;
 mod table;
 mod tier0;
 
+pub use branch::branch;
 pub use complex::complex;
 pub use loops::loops;
 pub use ops::ops;

@@ -19,8 +19,10 @@ impl ObjectFactory {
 
     pub fn parse(&mut self, s: &str) -> Option<Object> {
         if s.starts_with('"') && s.ends_with('"') {
-
-            Some(self.get_string(s[1..s.len() - 1].replace(r"\n", "\n")).into())
+            Some(
+                self.get_string(s[1..s.len() - 1].replace(r"\n", "\n"))
+                    .into(),
+            )
         } else {
             s.parse::<i32>().ok().map(Object::from)
         }

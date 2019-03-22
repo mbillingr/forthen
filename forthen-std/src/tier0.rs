@@ -157,28 +157,12 @@ pub fn tier0(state: &mut State) -> Result<()> {
         func.call(state)
     });
 
-    state.add_native_word(
-        "if",
-        "(..a ? true(..a -- ..b) false(..a -- ..b) -- ..b)",
-        |state| {
-            let else_branch = state.pop()?;
-            let if_branch = state.pop()?;
-            let cond = state.pop()?.try_into_bool()?;
-            if cond {
-                if_branch.call(state)
-            } else {
-                else_branch.call(state)
-            }
-        },
-    );
-
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scope;
 
     #[test]
     fn new_words() {
@@ -328,54 +312,6 @@ mod tests {
 
         state.run("[ 42 ] call").unwrap();;
         state.assert_pop(42);
-
-        state.assert_pop(123);
-    }
-
-    #[test]
-    fn if_word() {
-        let state = &mut State::new();
-        tier0(state).unwrap();
-        scope(state).unwrap();
-
-        state.run("USE scope:").unwrap();
-
-        state.add_native_word("true", "( -- b)", |state| state.push(Object::True));
-        state.add_native_word("false", "( -- b)", |state| state.push(Object::False));
-
-        state
-            .run(":: dup   (x -- x x)   set x get x get x ;")
-            .unwrap();
-        state
-            .run(":: swap   (x y -- y x)   set x set y get x get y ;")
-            .unwrap();
-        state
-            .run(":: over   (a b -- a b a)   set b set a get a get b get a ;")
-            .unwrap();
-        state
-            .run(":: rot   (a b c -- b c a)   set c set b set a get b get c get a  ;")
-            .unwrap();
-        state.run(":: drop   (x -- )   set x ;").unwrap();
-
-        state.run("123").unwrap(); // push sentinel value on stack
-
-        state.run("false [ \"yes\" ] [ \"no\" ] if").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "no");
-
-        state.run("true [ \"yes\" ] [ \"no\" ] if").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "yes");
-
-        state
-            .run(": yes-or-no ( ? -- s s ) [ \"yes\" dup ] [ \"no\" \"no\" ] if ;")
-            .unwrap();
-
-        state.run("false yes-or-no").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "no");
-        assert_eq!(state.pop_string().unwrap(), "no");
-
-        state.run("true yes-or-no").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "yes");
-        assert_eq!(state.pop_string().unwrap(), "yes");
 
         state.assert_pop(123);
     }

@@ -1,15 +1,16 @@
+use error_chain::ChainedError;
 use forthen_core::errors::*;
 use forthen_core::objects::prelude::*;
 use forthen_core::State;
 use forthen_std::*;
 use rustyline::Editor;
-use error_chain::ChainedError;
 use std::env;
 use std::fs;
 
 fn main() {
     let mut state = State::new();
     tier0(&mut state).unwrap();
+    branch(&mut state).unwrap();
     scope(&mut state).unwrap();
     stack(&mut state).unwrap();
     ops(&mut state).unwrap();
@@ -32,17 +33,27 @@ fn main() {
     let file;
 
     match &args[1..] {
-        ["-i", cmd] => { repl = true; file = Some(*cmd); }
-        [cmd] => { repl = false; file = Some(*cmd); }
-        [] => { repl = true; file = None; }
+        ["-i", cmd] => {
+            repl = true;
+            file = Some(*cmd);
+        }
+        [cmd] => {
+            repl = false;
+            file = Some(*cmd);
+        }
+        [] => {
+            repl = true;
+            file = None;
+        }
         _ => {
             eprintln!("Invalid Arguments. Expected script, -i script, or nothing.");
-            return
+            return;
         }
     }
 
     if let Some(filename) = file {
-        let code = fs::read_to_string(filename).expect(&format!("Unable to load {}", filename));
+        let code =
+            fs::read_to_string(filename).unwrap_or_else(|_| panic!("Unable to load {}", filename));
 
         match state.run(&code) {
             Ok(()) => {}
@@ -51,7 +62,7 @@ fn main() {
     }
 
     if !repl {
-        return
+        return;
     }
 
     let mut rl = Editor::<()>::new();
