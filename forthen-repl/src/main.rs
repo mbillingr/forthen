@@ -3,8 +3,9 @@ use forthen_core::objects::prelude::*;
 use forthen_core::State;
 use forthen_std::*;
 use rustyline::Editor;
-
 use error_chain::ChainedError;
+use std::env;
+use std::fs;
 
 fn main() {
     let mut state = State::new();
@@ -24,7 +25,34 @@ fn main() {
         Ok(())
     });
 
-    state.print_dictionary();
+    let args: Vec<String> = env::args().collect();
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+
+    let repl;
+    let file;
+
+    match &args[1..] {
+        ["-i", cmd] => { repl = true; file = Some(*cmd); }
+        [cmd] => { repl = false; file = Some(*cmd); }
+        [] => { repl = true; file = None; }
+        _ => {
+            eprintln!("Invalid Arguments. Expected script, -i script, or nothing.");
+            return
+        }
+    }
+
+    if let Some(filename) = file {
+        let code = fs::read_to_string(filename).expect(&format!("Unable to load {}", filename));
+
+        match state.run(&code) {
+            Ok(()) => {}
+            Err(e) => report_error(e),
+        }
+    }
+
+    if !repl {
+        return
+    }
 
     let mut rl = Editor::<()>::new();
 
