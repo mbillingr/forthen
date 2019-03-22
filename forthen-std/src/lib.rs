@@ -25,9 +25,11 @@ mod tests {
     fn recursion() {
         let mut state = State::new();
         tier0(&mut state).unwrap();
+        branch(&mut state).unwrap();
         scope(&mut state).unwrap();
         stack(&mut state).unwrap();
         ops(&mut state).unwrap();
+        state.run("USE branch:").unwrap();
         state.run("USE ops:").unwrap();
         state.run("USE scope:").unwrap();
         state.run("USE stack:").unwrap();
