@@ -4,6 +4,7 @@ use std::rc::Rc;
 use crate::objects::Object;
 use crate::rcstring::RcString;
 use crate::vm::ByteCode;
+use crate::StackEffect;
 
 #[derive(Debug)]
 pub enum Word {
@@ -24,6 +25,7 @@ pub struct Entry {
     pub name: Rc<String>,
     pub word: Word,
     pub source: Option<Rc<ByteCode>>,
+    pub stack_effect: StackEffect,
 }
 
 pub type WordId = Rc<Entry>;

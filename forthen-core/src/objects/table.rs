@@ -3,7 +3,6 @@ use crate::errors::*;
 use crate::rcstring::RcString;
 use crate::Object;
 use crate::ObjectInterface;
-use crate::StackEffect;
 use crate::State;
 use std::any::Any;
 use std::borrow::Borrow;
@@ -70,13 +69,6 @@ impl ObjectInterface for Table {
         }
     }
 
-    fn get_stack_effect(&self) -> Result<&StackEffect> {
-        if let Some(obj) = self.attributes.get("__call__") {
-            obj.get_stack_effect()
-        } else {
-            Err(ErrorKind::TypeError(format!("{:?} is not callable", self.repr_sys())).into())
-        }
-    }
     fn call(&self, state: &mut State) -> Result<()> {
         invoke_method(self, "__call__", state)
     }

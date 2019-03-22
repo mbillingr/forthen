@@ -6,9 +6,7 @@ use super::sequence::{
 };
 use crate::errors::*;
 use crate::parsing::tokenize;
-use crate::stack_effects::astack::AbstractStack;
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 
 #[derive(Default, Clone, PartialEq)]
 pub struct StackEffect {
@@ -32,6 +30,17 @@ impl StackEffect {
         )
     }
 
+    pub fn new_quoted(varname: &str, se: StackEffect) -> Self {
+        let r = ElementRef::anonymous_ellipsis();
+        Self::new(
+            vec![r.clone()],
+            vec![
+                r.clone(),
+                ElementRef::new(Element::Callable(varname.to_string(), se)),
+            ],
+        )
+    }
+
     pub fn new_mod(varname: &str) -> Self {
         let r = ElementRef::anonymous_ellipsis();
         Self::new(
@@ -49,13 +58,6 @@ impl StackEffect {
     pub fn parse(input: &str) -> Result<Self> {
         let scrpad = &mut Scratchpad::default();
         parse_effect(scrpad, &mut tokenize(input).peekable()).map_err(|e| e)
-    }
-
-    pub fn chain(&self, other: &Self) -> Result<StackEffect> {
-        let mut astack = AbstractStack::new();
-        astack.apply_effect(self)?;
-        astack.apply_effect(other)?;
-        Ok(astack.into_effect())
     }
 
     pub fn simplified(self) -> StackEffect {
@@ -108,33 +110,33 @@ impl StackEffect {
         StackEffect::new(inputs, outputs)
     }
 
-    pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
+    pub fn recursive_display(&self, seen: &mut HashSet<ElementHash>) -> String {
         let simple = self.clone().simplified();
 
         let a: Vec<_> = simple
             .inputs
             .iter()
-            .map(|x| x.borrow().recursive_display(seen))
+            .map(|x| x.recursive_display(seen))
             .collect();
         let b: Vec<_> = simple
             .outputs
             .iter()
-            .map(|x| x.borrow().recursive_display(seen))
+            .map(|x| x.recursive_display(seen))
             .collect();
 
         format!("{} -- {}", a.join(" "), b.join(" "))
     }
 
-    pub fn recursive_dbgstr(&self, seen: &mut HashSet<String>) -> String {
+    pub fn recursive_dbgstr(&self, seen: &mut HashSet<ElementHash>) -> String {
         let a: Vec<_> = self
             .inputs
             .iter()
-            .map(|x| x.borrow().recursive_dbgstr(seen))
+            .map(|x| x.recursive_dbgstr(seen))
             .collect();
         let b: Vec<_> = self
             .outputs
             .iter()
-            .map(|x| x.borrow().recursive_dbgstr(seen))
+            .map(|x| x.recursive_dbgstr(seen))
             .collect();
 
         format!("StackEffect({} -- {})", a.join(", "), b.join(", "))
@@ -150,29 +152,5 @@ impl std::fmt::Display for StackEffect {
 impl std::fmt::Debug for StackEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
-    }
-}
-
-impl FromIterator<StackEffect> for Result<StackEffect> {
-    fn from_iter<I: IntoIterator<Item = StackEffect>>(iter: I) -> Self {
-        let mut astack = AbstractStack::new();
-
-        for se in iter {
-            astack.apply_effect(&se)?;
-        }
-
-        Ok(astack.into_effect())
-    }
-}
-
-impl<'a> FromIterator<&'a StackEffect> for Result<StackEffect> {
-    fn from_iter<I: IntoIterator<Item = &'a StackEffect>>(iter: I) -> Self {
-        let mut astack = AbstractStack::new();
-
-        for se in iter {
-            astack.apply_effect(se)?;
-        }
-
-        Ok(astack.into_effect())
     }
 }

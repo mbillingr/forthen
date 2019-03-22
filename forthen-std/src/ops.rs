@@ -1,13 +1,18 @@
 use forthen_core::errors::*;
 use forthen_core::objects::prelude::*;
+use forthen_core::Object;
 use forthen_core::State;
 
 /// Load basic operations into the dictionary
 pub fn ops(state: &mut State) -> Result<()> {
     state.new_mod("ops".to_string())?;
 
-    state.add_native_word("emit", "(ch -- )", |state| {
-        print!("{}", std::char::from_u32(state.pop_i32()? as u32).ok_or("invalid character".to_string())?);
+    state.add_native_word("emit", "(x -- )", |state| {
+        match state.pop()? {
+            Object::String(s) => print!("{}", s),
+            Object::I32(i) => print!("{}", std::char::from_u32(i as u32).unwrap_or('�')),
+            obj => return Err(ErrorKind::TypeError(format!("Can't emit {:?}", obj)).into()),
+        }
         Ok(())
     });
 

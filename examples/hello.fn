@@ -1,0 +1,3 @@
+USE ops:
+
+"Hello, World!\n" emit

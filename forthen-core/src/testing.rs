@@ -40,11 +40,17 @@ impl State {
     {
         self.run(cmd).unwrap();
 
-        let mut stack_top: Vec<_> = (0..expected.len()).filter_map(|_| self.stack.pop()).collect();
+        let mut stack_top: Vec<_> = (0..expected.len())
+            .filter_map(|_| self.stack.pop())
+            .collect();
         stack_top.reverse();
 
-        if stack_top.len() != expected.len() || stack_top.iter().zip(expected).any(|(s, e)| s != e) {
-            panic!("Expected {:?} on top of stack but found {:?}", expected, stack_top);
+        if stack_top.len() != expected.len() || stack_top.iter().zip(expected).any(|(s, e)| s != e)
+        {
+            panic!(
+                "Expected {:?} on top of stack but found {:?}",
+                expected, stack_top
+            );
         }
     }
 }

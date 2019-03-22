@@ -2,7 +2,6 @@ use super::table::Table;
 pub use super::Object;
 use crate::errors::*;
 use crate::Result;
-use crate::StackEffect;
 use crate::State;
 use std::any::Any;
 use std::rc::Rc;
@@ -26,15 +25,10 @@ pub trait ObjectInterface {
         false
     }
 
-    fn get_stack_effect(&self) -> Result<&StackEffect> {
-        Err(
-            ErrorKind::TypeError(format!("{:?} does not have stack effects", self.repr_sys()))
-                .into(),
-        )
-    }
     fn call(&self, _state: &mut State) -> Result<()> {
         Err(ErrorKind::TypeError(format!("{:?} is not callable", self.repr_sys())).into())
     }
+
     fn is_pure(&self) -> bool {
         false
     }

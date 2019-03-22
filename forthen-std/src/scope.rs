@@ -1,8 +1,8 @@
 use forthen_core::errors::*;
+use forthen_core::objects::prelude::*;
 use forthen_core::CompilerScope;
 use forthen_core::Object;
 use forthen_core::State;
-use forthen_core::{ByteCode, Opcode};
 use std::rc::Rc;
 
 /// Load language tier 0 into the dictionary
@@ -52,9 +52,9 @@ pub fn scope(state: &mut State) -> Result<()> {
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::push_i32(i));
-        instructions.ops.push(Opcode::call_word(store.clone()));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(i.into());
+        instructions.push(Object::Word(store.clone()));
         Ok(())
     });
 
@@ -63,9 +63,9 @@ pub fn scope(state: &mut State) -> Result<()> {
 
         let i = state.scopes.last_mut().unwrap().get_storage_location(&name) as i32;
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::push_i32(i));
-        instructions.ops.push(Opcode::call_word(fetch.clone()));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(i.into());
+        instructions.push(Object::Word(fetch.clone()));
         Ok(())
     });
 
@@ -73,6 +73,19 @@ pub fn scope(state: &mut State) -> Result<()> {
         // todo: parse stack effect from word definition and compare against derived stack effect?
 
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+
+        let mut se = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        if se != "(" {
+            return Err(ErrorKind::ExpectedStackEffect.into());
+        }
+        loop {
+            let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+            se += " ";
+            se += &token;
+            if token == ")" {
+                break;
+            }
+        }
 
         state.scopes.push(CompilerScope::new());
 
@@ -87,24 +100,16 @@ pub fn scope(state: &mut State) -> Result<()> {
         let scope = state.scopes.pop().unwrap();
         let n_vars = scope.len() as i32;
 
-        let mut quot = ByteCode::new();
-        quot.ops.push(Opcode::push_i32(n_vars));
-        quot.ops.push(Opcode::call_word(push_frame.clone()));
-        quot.ops.extend(
-            Rc::try_unwrap(state.pop()?.try_into_rc_quotation()?)
-                .or(Err(ErrorKind::OwnershipError))?
-                .ops,
+        let mut quot = Vec::new();
+        quot.push(n_vars.into());
+        quot.push(Object::Word(push_frame.clone()));
+        quot.extend(
+            Rc::try_unwrap(state.pop()?.into_rc_vec()?).or(Err(ErrorKind::OwnershipError))?,
         );
-        quot.ops.push(Opcode::push_i32(n_vars));
-        quot.ops.push(Opcode::call_word(pop_frame.clone()));
+        quot.push(n_vars.into());
+        quot.push(Object::Word(pop_frame.clone()));
 
-        let se = quot
-            .ops
-            .iter()
-            .map(Opcode::stack_effect)
-            .collect::<Result<_>>()?;
-
-        state.add_compound_word(name, se, Rc::new(quot));
+        state.add_compound_word(name, se, Object::List(Rc::new(quot)));
         Ok(())
     });
 
@@ -128,15 +133,19 @@ mod tests {
 
         state.run("123").unwrap(); // push sentinel value on stack
 
-        state.run(":: dup   set x get x get x ;").unwrap();
-        state.run(":: swap   set x set y get x get y ;").unwrap();
         state
-            .run(":: over   set b set a get a get b get a ;")
+            .run(":: dup   (x -- x x)   set x get x get x ;")
             .unwrap();
         state
-            .run(":: rot   set c set b set a get b get c get a  ;")
+            .run(":: swap   (x y -- y x)   set x set y get x get y ;")
             .unwrap();
-        state.run(":: drop   set x ;").unwrap();
+        state
+            .run(":: over   (a b -- a b a)   set b set a get a get b get a ;")
+            .unwrap();
+        state
+            .run(":: rot   (a b c -- b c a)   set c set b set a get b get c get a  ;")
+            .unwrap();
+        state.run(":: drop   (x -- )   set x ;").unwrap();
 
         state.run("42 dup").unwrap();
         state.assert_pop(42);

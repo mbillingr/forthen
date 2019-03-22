@@ -10,7 +10,7 @@ use crate::objects::{callable::Callable, prelude::*};
 use crate::parsing::tokenize;
 use crate::scope::CompilerScope;
 use crate::stack_effects::{IntoStackEffect, StackEffect};
-use crate::vm::{ByteCode, Opcode};
+use crate::vm::ByteCode;
 
 #[derive(Debug, Default)]
 pub struct State {
@@ -52,8 +52,7 @@ impl State {
             }
         }
 
-        let quot = self.pop()?.try_into_rc_quotation()?;
-        quot.run(self)
+        self.pop()?.call(self)
     }
     /*
         pub fn run_sequence(&mut self, ops: &[Object]) -> Result<()> {
@@ -86,15 +85,12 @@ impl State {
         match (literal, word) {
             (None, None) => return Err(ErrorKind::UnknownWord(token.to_string()).into()),
             (Some(_), Some(_)) => return Err(ErrorKind::AmbiguousWord(token.to_string()).into()),
-            (Some(obj), None) => self
-                .top_mut()?
-                .try_as_quotation_mut()?
-                .ops
-                .push(Opcode::Push(obj)),
+            (Some(obj), None) => self.top_mut()?.as_vec_mut()?.push(obj),
             (None, Some(entry)) => match &entry.word {
                 Word::Word(_) => {
-                    let op = Opcode::call_word(entry.clone());
-                    self.top_mut()?.try_as_quotation_mut()?.ops.push(op);
+                    //let op = Opcode::call_word(entry.clone());
+                    let op = Object::Word(entry);
+                    self.top_mut()?.as_vec_mut()?.push(op);
                 }
                 Word::ParsingWord(obj) => obj.clone().call(self)?,
             },
@@ -115,11 +111,9 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::Word(Object::Function(Callable::new_const(
-                    func,
-                    stack_effect.into_stack_effect(),
-                ))),
+                word: Word::Word(Object::Function(Callable::new_const(func))),
                 source: None,
+                stack_effect: stack_effect.into_stack_effect(),
             },
         );
     }
@@ -136,43 +130,20 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                word: Word::ParsingWord(Object::Function(Callable::new_const(
-                    func,
-                    StackEffect::new_mod("acc"),
-                ))),
+                word: Word::ParsingWord(Object::Function(Callable::new_const(func))),
                 source: None,
+                stack_effect: StackEffect::new_mod("acc"),
             },
         );
     }
 
     // todo: this function should almost certainly not be here at this place...
-    pub fn compile(&self, quot: Rc<ByteCode>, se: StackEffect) -> Callable {
+    pub fn compile(&self, quot: Rc<ByteCode>) -> Callable {
         // todo: a word made of pure words only should become a pure word too
-        Callable::new_const(move |state| quot.run(state), se)
+        Callable::new_const(move |state| quot.run(state))
     }
 
-    pub fn add_compound_word<S>(
-        &mut self,
-        name: S,
-        stack_effect: impl IntoStackEffect,
-        quot: Rc<ByteCode>,
-    ) where
-        ObjectFactory: StringManager<S>,
-    {
-        let name = self.factory.get_string(name);
-        self.current_module.insert(
-            name.clone(),
-            Entry {
-                name,
-                source: Some(quot.clone()),
-                word: Word::Word(Object::Function(
-                    self.compile(quot, stack_effect.into_stack_effect()),
-                )),
-            },
-        );
-    }
-
-    pub fn add_compound_parse_word<S>(&mut self, name: S, quot: Rc<ByteCode>)
+    pub fn add_compound_word<S>(&mut self, name: S, stack_effect: impl IntoStackEffect, obj: Object)
     where
         ObjectFactory: StringManager<S>,
     {
@@ -181,10 +152,29 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                source: Some(quot.clone()),
-                word: Word::ParsingWord(Object::Function(
-                    self.compile(quot, StackEffect::new_mod("acc")),
-                )),
+                //source: Some(quot.clone()),
+                //word: Word::Word(Object::Function(self.compile(quot))),
+                source: None,
+                word: Word::Word(obj),
+                stack_effect: stack_effect.into_stack_effect(),
+            },
+        );
+    }
+
+    pub fn add_compound_parse_word<S>(&mut self, name: S, obj: Object)
+    where
+        ObjectFactory: StringManager<S>,
+    {
+        let name = self.factory.get_string(name);
+        self.current_module.insert(
+            name.clone(),
+            Entry {
+                name,
+                //source: Some(quot.clone()),
+                //word: Word::ParsingWord(Object::Function(self.compile(quot))),
+                source: None,
+                word: Word::ParsingWord(obj),
+                stack_effect: StackEffect::new_mod("acc"),
             },
         );
     }
@@ -202,9 +192,17 @@ impl State {
                     println!(
                         "{:>20}   {:50}   {}",
                         entry.name,
-                        format!("({})", ca.get_stack_effect()),
+                        format!("({})", entry.stack_effect),
                         func
                     )
+                }
+                Object::List(list) => {
+                    println!(
+                        "{:>20}   {:50}   {:?}",
+                        entry.name,
+                        format!("({})", entry.stack_effect),
+                        list
+                    );
                 }
                 _ => println!("{:>20}  invalid word", name),
             },
@@ -274,8 +272,7 @@ impl State {
     }
 
     pub fn begin_compile(&mut self) {
-        self.push(Object::ByteCode(Rc::new(ByteCode::new())))
-            .unwrap();
+        self.push(Object::List(Rc::new(Vec::new()))).unwrap();
     }
 
     pub fn dup(&mut self) -> Result<()> {

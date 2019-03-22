@@ -1,8 +1,6 @@
 use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
 use forthen_core::objects::prelude::*;
-use forthen_core::Object;
-use forthen_core::Opcode;
 use forthen_core::State;
 
 /// Load language tier 0 into the dictionary
@@ -73,7 +71,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
         }
 
         let obj = state.pop()?;
-        state.add_compound_parse_word(name, obj.try_into_rc_quotation()?);
+        state.add_compound_parse_word(name, obj);
         Ok(())
     });
 
@@ -101,6 +99,19 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
+        let mut se = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        if se != "(" {
+            return Err(ErrorKind::ExpectedStackEffect.into());
+        }
+        loop {
+            let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+            se += " ";
+            se += &token;
+            if token == ")" {
+                break;
+            }
+        }
+
         state.begin_compile();
 
         if let Err(e) = state.parse_until(";") {
@@ -108,13 +119,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
             return Err(e);
         }
 
-        let quot = state.pop()?.try_into_rc_quotation()?;
-
-        let se = quot
-            .ops
-            .iter()
-            .map(Opcode::stack_effect)
-            .collect::<Result<_>>()?;
+        let quot = state.pop()?;
 
         state.add_compound_word(name, se, quot);
         Ok(())
@@ -127,20 +132,10 @@ pub fn tier0(state: &mut State) -> Result<()> {
             state.pop().unwrap();
             return Err(e);
         }
-        let quot = state.pop()?.try_into_rc_quotation()?;
 
-        let se = quot
-            .ops
-            .iter()
-            .map(Opcode::stack_effect)
-            .collect::<Result<_>>()?;
+        let code = state.pop()?;
 
-        let obj = Object::Function(state.compile(quot, se));
-        state
-            .top_mut()?
-            .try_as_quotation_mut()?
-            .ops
-            .push(Opcode::Push(obj));
+        state.top_mut()?.as_vec_mut()?.push(code);
         Ok(())
     });
 
@@ -162,28 +157,12 @@ pub fn tier0(state: &mut State) -> Result<()> {
         func.call(state)
     });
 
-    state.add_native_word(
-        "if",
-        "(..a ? true(..a -- ..b) false(..a -- ..b) -- ..b)",
-        |state| {
-            let else_branch = state.pop()?;
-            let if_branch = state.pop()?;
-            let cond = state.pop()?.try_into_bool()?;
-            if cond {
-                if_branch.call(state)
-            } else {
-                else_branch.call(state)
-            }
-        },
-    );
-
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scope;
 
     #[test]
     fn new_words() {
@@ -191,12 +170,14 @@ mod tests {
         tier0(state).unwrap();
 
         state.run("123").unwrap(); // push sentinel value on stack
-        state.run(": the-answer 42 ;").unwrap(); // define new word
+        state.run(": the-answer ( -- x ) 42 ;").unwrap(); // define new word
         assert_eq!(state.pop_i32().unwrap(), 123); // make sure the word definition has no effect on the stack
         state.run("the-answer").unwrap(); // run the new word
         assert_eq!(state.pop_i32().unwrap(), 42);
 
-        state.run(": more-answers the-answer the-answer ;").unwrap();
+        state
+            .run(": more-answers ( -- x x ) the-answer the-answer ;")
+            .unwrap();
         state.run("more-answers").unwrap();
         assert_eq!(state.pop_i32().unwrap(), 42);
         assert_eq!(state.pop_i32().unwrap(), 42);
@@ -223,7 +204,7 @@ mod tests {
 
         state.run("123").unwrap(); // push sentinel value on stack
         state.run("SYNTAX: the-answer 42 -rot ;").unwrap(); // define new parse word that puts a number deep in the stack
-        state.run(": nop the-answer ; .s").unwrap(); // define a new word
+        state.run(": nop ( -- ) the-answer ; .s").unwrap(); // define a new word
         assert_eq!(state.pop_i32().unwrap(), 42); // the number should end up on the stack during word definition
         state.run("nop").unwrap(); // make sure the new word does nothing
         assert_eq!(state.pop_i32().unwrap(), 123);
@@ -234,12 +215,16 @@ mod tests {
         let state = &mut State::new();
         tier0(state).unwrap();
 
-        state.run(": in_root 1 ;").unwrap();
+        state.run(": in_root ( -- x ) 1 ;").unwrap();
 
         state.run("MODULE outer").unwrap();
-        state.run("    : in_outer 2 ;").unwrap();
-        state.run("    : use_same_module in_outer ;").unwrap();
-        state.run("    : use_parent_module in_root ;").unwrap();
+        state.run("    : in_outer ( -- x ) 2 ;").unwrap();
+        state
+            .run("    : use_same_module ( -- x ) in_outer ;")
+            .unwrap();
+        state
+            .run("    : use_parent_module ( -- x ) in_root ;")
+            .unwrap();
 
         // make sure we can run words defined in the current module
         state.assert_run_pop("in_outer", &[2]);
@@ -249,10 +234,16 @@ mod tests {
         state.assert_run_pop("in_root", &[1]);
 
         state.run("    MODULE inner").unwrap();
-        state.run("        : in_inner 3 ;").unwrap();
-        state.run("        : use_same_module in_inner ;").unwrap();
-        state.run("        : use_parent_module in_outer ;").unwrap();
-        state.run("        : use_root_module in_root ;").unwrap();
+        state.run("        : in_inner ( -- x ) 3 ;").unwrap();
+        state
+            .run("        : use_same_module ( -- x ) in_inner ;")
+            .unwrap();
+        state
+            .run("        : use_parent_module ( -- x ) in_outer ;")
+            .unwrap();
+        state
+            .run("        : use_root_module ( -- x ) in_root ;")
+            .unwrap();
 
         // make sure we can run words defined in the current module
         state.assert_run_pop("in_inner", &[3]);
@@ -321,50 +312,6 @@ mod tests {
 
         state.run("[ 42 ] call").unwrap();;
         state.assert_pop(42);
-
-        state.assert_pop(123);
-    }
-
-    #[test]
-    fn if_word() {
-        let state = &mut State::new();
-        tier0(state).unwrap();
-        scope(state).unwrap();
-
-        state.run("USE scope:").unwrap();
-
-        state.add_native_word("true", "( -- b)", |state| state.push(Object::True));
-        state.add_native_word("false", "( -- b)", |state| state.push(Object::False));
-
-        state.run(":: dup   set x get x get x ;").unwrap();
-        state.run(":: swap   set x set y get x get y ;").unwrap();
-        state
-            .run(":: over   set b set a get a get b get a ;")
-            .unwrap();
-        state
-            .run(":: rot   set c set b set a get b get c get a  ;")
-            .unwrap();
-        state.run(":: drop   set x ;").unwrap();
-
-        state.run("123").unwrap(); // push sentinel value on stack
-
-        state.run("false [ \"yes\" ] [ \"no\" ] if").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "no");
-
-        state.run("true [ \"yes\" ] [ \"no\" ] if").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "yes");
-
-        state
-            .run(": yes-or-no [ \"yes\" dup ] [ \"no\" \"no\" ] if ;")
-            .unwrap();
-
-        state.run("false yes-or-no").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "no");
-        assert_eq!(state.pop_string().unwrap(), "no");
-
-        state.run("true yes-or-no").unwrap();
-        assert_eq!(state.pop_string().unwrap(), "yes");
-        assert_eq!(state.pop_string().unwrap(), "yes");
 
         state.assert_pop(123);
     }

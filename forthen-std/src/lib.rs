@@ -1,4 +1,5 @@
 mod brainfuck;
+mod branch;
 mod complex;
 mod loops;
 mod ops;
@@ -8,6 +9,7 @@ mod table;
 mod tier0;
 
 pub use brainfuck::brainfuck;
+pub use branch::branch;
 pub use complex::complex;
 pub use loops::loops;
 pub use ops::ops;
@@ -25,18 +27,20 @@ mod tests {
     fn recursion() {
         let mut state = State::new();
         tier0(&mut state).unwrap();
+        branch(&mut state).unwrap();
         scope(&mut state).unwrap();
         stack(&mut state).unwrap();
         ops(&mut state).unwrap();
+        state.run("USE branch:").unwrap();
         state.run("USE ops:").unwrap();
         state.run("USE scope:").unwrap();
         state.run("USE stack:").unwrap();
         state
             .run(
                 "
-                    : stash dup rot swap ;
+                    : stash (y x -- x y x) dup rot swap ;
 
-                    :: factorial
+                    :: factorial   (x -- x)
                     1 +
                     1 set acc
                     [

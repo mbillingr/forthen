@@ -19,6 +19,7 @@ pub fn normalized_sequence(seq: Vec<ElementRef>) -> Vec<ElementRef> {
             }
         } else {
             // looks like we are already working on this ((recursive?) callable?)...
+            println!("***");
             out.push(el.clone());
         }
     }

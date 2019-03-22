@@ -19,22 +19,22 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
             - storing tape in a table because we lack arrays
             - need one more word to use quotations as [ ] loops )
 
-        : init
+        : init (-- tape pos)
             {}
             0 30000 [ repr 0 set_attribute ] for
             0
         ;
 
-        : query dup repr rot swap get_attribute rot rot swap rot ;
-        :: update swap dup repr swap set ptr swap set_attribute get ptr ;
+        : query   (tape pos -- tape pos x)   dup repr rot swap get_attribute rot rot swap rot ;
+        :: update   (tape pos x -- tape' pos)   swap dup repr swap set ptr swap set_attribute get ptr ;
 
-        : > 1 + ;
-        : < 1 - ;
-        : + query 1 + update ;
-        : - query 1 - update ;
-        : . query emit ;
+        : > (tape pos -- tape pos') 1 + ;
+        : < (tape pos -- tape pos') 1 - ;
+        : + (tape pos -- tape' pos) query 1 + update ;
+        : - (tape pos -- tape' pos) query 1 - update ;
+        : . (tape pos -- tape pos') query emit ;
 
-        :: loop set inner [ query 0 != ] [ get inner call ] while ;
+        :: loop   (tape pos -- tape' pos')   set inner [ query 0 != ] [ get inner call ] while ;
 
 
         (Brainfuck Example)

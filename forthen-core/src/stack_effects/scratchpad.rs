@@ -1,7 +1,4 @@
-use super::effect::StackEffect;
 use super::element::{Element, ElementRef};
-use crate::errors::*;
-use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
 pub struct Scratchpad {
@@ -26,28 +23,6 @@ impl Scratchpad {
         let r = ElementRef::new(new_node);
         self.elements.push(r.clone());
         r
-    }
-
-    pub fn insert_existing(&mut self, node: ElementRef) {
-        self.elements.push(node);
-    }
-
-    pub fn copy_effect(&mut self, se: &StackEffect) -> StackEffect {
-        let mut mapping = HashMap::new();
-        let new_se = se.recursive_deepcopy(&mut mapping);
-        self.elements.extend(mapping.into_iter().map(|(_, v)| v));
-        new_se
-    }
-
-    /// replace the more generic element with the more specific one and return the result
-    pub fn substitute(&mut self, a: ElementRef, b: ElementRef) -> Result<ElementRef> {
-        if a.borrow().is_less_specific(&b.borrow())? {
-            a.substitute(Element::Sequence(vec![b]));
-            Ok(a)
-        } else {
-            b.substitute(Element::Sequence(vec![a]));
-            Ok(b)
-        }
     }
 }
 

@@ -26,19 +26,23 @@ pub fn loops(state: &mut State) -> Result<()> {
         Ok(())
     });
 
-    state.add_native_word("while", "(..a cond(..a -- ..b ?) f(..b -- ..c) -- ..c)", |state| {
-        let callee = state.pop()?;
-        let cond = state.pop()?;
-        loop {
-            cond.call(state)?;
-            if state.pop_bool()? {
-                callee.call(state)?;
-            } else {
-                break
+    state.add_native_word(
+        "while",
+        "(..a cond(..a -- ..b ?) f(..b -- ..c) -- ..c)",
+        |state| {
+            let callee = state.pop()?;
+            let cond = state.pop()?;
+            loop {
+                cond.call(state)?;
+                if state.pop_bool()? {
+                    callee.call(state)?;
+                } else {
+                    break;
+                }
             }
-        }
-        Ok(())
-    });
+            Ok(())
+        },
+    );
 
     state.exit_mod().unwrap();
 
@@ -48,9 +52,9 @@ pub fn loops(state: &mut State) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tier0;
     use crate::ops;
     use crate::stack;
+    use crate::tier0;
 
     #[test]
     fn repeat() {
@@ -106,11 +110,12 @@ mod tests {
 
         state.push_str("bottom").unwrap();
 
-        state.run("0 128 [ dup 2 <= ] [ 2 / swap 1 + swap ] while").unwrap();
+        state
+            .run("0 128 [ dup 2 <= ] [ 2 / swap 1 + swap ] while")
+            .unwrap();
         assert_eq!(1, state.pop_i32().unwrap());
         assert_eq!(7, state.pop_i32().unwrap());
 
         assert_eq!("bottom", state.pop_string().unwrap());
     }
 }
-

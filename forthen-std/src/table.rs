@@ -2,7 +2,6 @@ use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
 use forthen_core::objects::object::Object;
 use forthen_core::objects::{callable::Callable, prelude::*};
-use forthen_core::Opcode;
 use forthen_core::State;
 
 pub fn table(state: &mut State) -> Result<()> {
@@ -30,17 +29,14 @@ pub fn table(state: &mut State) -> Result<()> {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         let name = state.factory.get_string(name);
 
-        let set_func = Callable::new_const(
-            move |state| {
-                let value = state.pop()?;
-                state.top_mut()?.set_attr(name.clone(), value);
-                Ok(())
-            },
-            "(obj val -- obj')",
-        );
+        let set_func = Callable::new_const(move |state| {
+            let value = state.pop()?;
+            state.top_mut()?.set_attr(name.clone(), value);
+            Ok(())
+        });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(set_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(set_func));
         Ok(())
     });
 
@@ -48,19 +44,16 @@ pub fn table(state: &mut State) -> Result<()> {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         let name = state.factory.get_string(name);
 
-        let get_func = Callable::new_const(
-            move |state| {
-                let value = state
-                    .top()?
-                    .get_attr(&name)
-                    .ok_or_else(|| ErrorKind::AttributeError(name.to_string()))?;
-                state.push(value)
-            },
-            "(obj -- obj val)",
-        );
+        let get_func = Callable::new_const(move |state| {
+            let value = state
+                .top()?
+                .get_attr(&name)
+                .ok_or_else(|| ErrorKind::AttributeError(name.to_string()))?;
+            state.push(value)
+        });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(get_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(get_func));
         Ok(())
     });
 
@@ -68,19 +61,16 @@ pub fn table(state: &mut State) -> Result<()> {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         let name = state.factory.get_string(name);
 
-        let get_func = Callable::new_const(
-            move |state| {
-                let this = state.pop()?;
-                state.push(name.clone())?;
-                this.get_attribute(state)?;
-                state.push(this)?;
-                state.swap()
-            },
-            "(obj -- obj val)",
-        );
+        let get_func = Callable::new_const(move |state| {
+            let this = state.pop()?;
+            state.push(name.clone())?;
+            this.get_attribute(state)?;
+            state.push(this)?;
+            state.swap()
+        });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(get_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(get_func));
         Ok(())
     });
 
@@ -107,16 +97,13 @@ pub fn table(state: &mut State) -> Result<()> {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         let name = state.factory.get_string(name);
 
-        let get_func = Callable::new_const(
-            move |state| match state.top()?.get_attr(&name) {
-                Some(_) => state.push(Object::True),
-                None => state.push(Object::False),
-            },
-            "(obj -- obj ?)",
-        );
+        let get_func = Callable::new_const(move |state| match state.top()?.get_attr(&name) {
+            Some(_) => state.push(Object::True),
+            None => state.push(Object::False),
+        });
 
-        let instructions = state.top_mut()?.try_as_quotation_mut()?;
-        instructions.ops.push(Opcode::call_direct(get_func));
+        let instructions = state.top_mut()?.as_vec_mut()?;
+        instructions.push(Object::Function(get_func));
         Ok(())
     });
 
@@ -131,31 +118,38 @@ pub fn table(state: &mut State) -> Result<()> {
         USE :stack:
         USE :table:
 
-        :: cmul
+        :: cmul   (a ib c id -- acbd iadbc)
             set d set c set b set a
             get a get c * get b get d * -
             get a get d * get b get c * +
         ;
 
-        : cbi
+        : cbi    (c1 c2 -- meta r2 i2 r1 i1)
             get_metatable
+            (c1 c2 meta)
             rot rot
+            (meta c1 c2)
 
             get_attr get call
+            (meta c1 c2 r2 i2)
             rot drop
+            (meta c1 r2 i2)
             rot
+            (meta r2 i2 c1)
             get_attr get call
+            (meta r2 i2 c1 r1 i1)
             rot drop
+            (meta r2 i2 r1 i1)
         ;
 
-        : cnew
+        : cnew    (r i cls -- self)
             {}
             swap set_metatable
             swap set_attr imag
             swap set_attr real
         ;
 
-        : class {} ;
+        : class   ( -- c)   {} ;
 
         LET: Complex class
             [ cnew ] set_attr new

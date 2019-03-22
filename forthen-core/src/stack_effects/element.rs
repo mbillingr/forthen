@@ -2,12 +2,13 @@ use super::effect::StackEffect;
 use super::sequence::sequence_recursive_deepcopy;
 use crate::errors::*;
 use crate::refhash::RefHash;
+use crate::stack_effects::sequence::normalized_sequence;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ElementHash(RefHash<RefCell<Element>>);
 
 impl From<ElementRef> for ElementHash {
@@ -52,8 +53,37 @@ impl ElementRef {
         Rc::ptr_eq(&self.node, &other.node)
     }
 
-    pub fn substitute(&self, new_content: Element) -> Element {
-        std::mem::replace(&mut *self.borrow_mut(), new_content)
+    pub fn flattened(self) -> Self {
+        if let Element::Sequence(s) = &*self.borrow() {
+            if s.len() == 1 {
+                return s[0].clone().flattened();
+            }
+        }
+        self
+    }
+
+    pub fn substitute(&self, mut new_content: Element) -> Result<Element> {
+        debug_assert!(!self.borrow().is_sequence());
+
+        if let Element::Sequence(ref mut s) = new_content {
+            *s = normalized_sequence(s.clone());
+            if s.len() == 1 && s[0].is_same(self) {
+                return Ok(new_content);
+            }
+
+            if s.iter().any(|item| item.is_same(self)) {
+                return Err(ErrorKind::InfiniteSubstitution.into());
+            }
+
+            if s.len() > 1 && !self.borrow().is_ellipsis() {
+                panic!("Attempt to substitute something other than an ellipsis with a sequence: {:?} := {:?}", self, new_content)
+            }
+        }
+
+        println!("substituting: {:?} := {:?}", self, new_content);
+
+        let old = std::mem::replace(&mut *self.borrow_mut(), new_content);
+        Ok(old)
     }
 
     pub fn recursive_deepcopy(&self, mapping: &mut HashMap<ElementHash, ElementRef>) -> Self {
@@ -75,17 +105,60 @@ impl ElementRef {
         mapping.insert(eh, y.clone());
         y
     }
-}
 
-impl std::fmt::Debug for ElementRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.node.borrow())
+    pub fn recursive_display(&self, seen: &mut HashSet<ElementHash>) -> String {
+        match &*self.borrow() {
+            Element::Ellipsis(name) => format!("..{}", name),
+            Element::Item(name) => name.to_string(),
+            Element::Callable(name, se) => {
+                if seen.contains(&self.clone().into()) {
+                    format!("{}(...)", name)
+                } else {
+                    seen.insert(self.clone().into());
+                    format!("{}({})", name, se.recursive_display(seen))
+                }
+            }
+            Element::Sequence(elements) => elements
+                .iter()
+                .map(|ele| ele.recursive_display(seen))
+                .collect::<Vec<_>>()
+                .join(" "),
+        }
+    }
+
+    pub fn recursive_dbgstr(&self, seen: &mut HashSet<ElementHash>) -> String {
+        match &*self.borrow() {
+            Element::Ellipsis(name) => format!("Ellipsis({:?})", name),
+            Element::Item(name) => format!("Item({:?})", name),
+            Element::Callable(name, se) => {
+                if seen.contains(&self.clone().into()) {
+                    format!("Callable({:?}, ...)", name)
+                } else {
+                    seen.insert(self.clone().into());
+                    format!("Callable({}, {})", name, se.recursive_dbgstr(seen))
+                }
+            }
+            Element::Sequence(elements) => format!(
+                "[{}]",
+                elements
+                    .iter()
+                    .map(|ele| ele.recursive_dbgstr(seen))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
+        }
     }
 }
 
 impl std::fmt::Display for ElementRef {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.node.borrow())
+        write!(f, "{}", self.recursive_display(&mut HashSet::new()))
+    }
+}
+
+impl std::fmt::Debug for ElementRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
     }
 }
 
@@ -95,7 +168,7 @@ impl std::cmp::PartialEq for ElementRef {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Element {
     Ellipsis(String),
     Item(String),
@@ -104,12 +177,28 @@ pub enum Element {
 }
 
 impl Element {
+    pub fn flattened(self) -> Self {
+        if let Element::Sequence(s) = self {
+            Element::Sequence(normalized_sequence(s))
+        } else {
+            self
+        }
+    }
+
     pub fn is_same(&self, other: &Self) -> bool {
         std::ptr::eq(self, other)
     }
 
     pub fn is_ellipsis(&self) -> bool {
         if let Element::Ellipsis(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_sequence(&self) -> bool {
+        if let Element::Sequence(_) = self {
             true
         } else {
             false
@@ -146,7 +235,7 @@ impl Element {
     pub fn is_less_specific(&self, other: &Self) -> Result<bool> {
         use Element::*;
         match (self, other) {
-            (Ellipsis(_), Ellipsis(_)) => Ok(false),
+            /*(Ellipsis(_), Ellipsis(_)) => Ok(false),
             (Item(_), Item(_)) => Ok(false),
             (Callable(_, _), Callable(_, _)) => Ok(false),
             (Sequence(_), Sequence(_)) => Ok(false),
@@ -156,51 +245,30 @@ impl Element {
             (_, Ellipsis(_)) => Ok(false),
             (Ellipsis(_), _) => Ok(true),
             (_, Item(_)) => Ok(false),
-            (Item(_), _) => Ok(true),
-        }
-    }
+            (Item(_), _) => Ok(true),*/
+            (Ellipsis(_), Ellipsis(_)) => Ok(false),
+            (Ellipsis(_), Item(_)) => Ok(true),
+            (Ellipsis(_), Callable(_, _)) => Ok(true),
+            (Ellipsis(_), Sequence(_)) => Ok(true),
 
-    pub fn recursive_display(&self, seen: &mut HashSet<String>) -> String {
-        match self {
-            Element::Ellipsis(name) => format!("..{}", name),
-            Element::Item(name) => name.to_string(),
-            Element::Callable(name, se) => {
-                if seen.contains(name) {
-                    format!("{}(...)", name)
-                } else {
-                    seen.insert(name.clone());
-                    format!("{}({})", name, se.recursive_display(seen))
-                }
-            }
-            Element::Sequence(elements) => elements
-                .iter()
-                .map(|ele| ele.borrow().recursive_display(seen))
-                .collect::<Vec<_>>()
-                .join(" "),
-        }
-    }
+            (Item(_), Ellipsis(_)) => Ok(false),
+            (Item(_), Item(_)) => Ok(false),
+            (Item(_), Callable(_, _)) => Ok(true),
+            (Item(_), Sequence(_)) => Err(ErrorKind::IncompatibleStackEffects.into()),
 
-    pub fn recursive_dbgstr(&self, seen: &mut HashSet<String>) -> String {
-        match self {
-            Element::Ellipsis(name) => format!("Ellipsis({:?})", name),
-            Element::Item(name) => format!("Item({:?})", name),
-            Element::Callable(name, se) => {
-                if seen.contains(name) {
-                    format!("Callable({:?}, ...)", name)
-                } else {
-                    seen.insert(name.clone());
-                    format!("Callable({}, {})", name, se.recursive_dbgstr(seen))
-                }
-            }
-            Element::Sequence(elements) => elements
-                .iter()
-                .map(|ele| ele.borrow().recursive_dbgstr(seen))
-                .collect::<Vec<_>>()
-                .join(" "),
+            (Callable(_, _), Ellipsis(_)) => Ok(false),
+            (Callable(_, _), Item(_)) => Ok(false),
+            (Callable(_, _), Callable(_, _)) => Ok(false),
+            (Callable(_, _), Sequence(_)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+
+            (Sequence(_), Ellipsis(_)) => Ok(false),
+            (Sequence(_), Item(_)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Sequence(_), Callable(_, _)) => Err(ErrorKind::IncompatibleStackEffects.into()),
+            (Sequence(_), Sequence(_)) => Ok(false),
         }
     }
 }
-
+/*
 impl std::fmt::Display for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.recursive_display(&mut HashSet::new()))
@@ -211,4 +279,4 @@ impl std::fmt::Debug for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.recursive_dbgstr(&mut HashSet::new()))
     }
-}
+}*/
