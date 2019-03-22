@@ -6,7 +6,6 @@ use crate::errors::*;
 use crate::object_factory::StringManager;
 use crate::objects::table::TableImpl;
 use crate::state::State;
-use crate::vm::ByteCode;
 use std::any::Any;
 use std::rc::Rc;
 
@@ -18,7 +17,6 @@ pub enum Object {
     True,
     I32(i32),
     Word(WordId),
-    ByteCode(Rc<ByteCode>),
     Function(Callable),
     List(Rc<Vec<Object>>),
     String(Rc<String>),
@@ -88,7 +86,6 @@ impl std::cmp::PartialEq for Object {
         match (self, &other) {
             (None, None) => true,
             (Function(a), Function(b)) => a == b,
-            (ByteCode(a), ByteCode(b)) => a == b,
             (List(_a), List(_b)) => unimplemented!(),
             (String(a), String(b)) => a == b,
             (I32(a), I32(b)) => a == b,
@@ -164,7 +161,6 @@ impl Object {
             (I32(a), I32(b)) => a == b,
             (Word(a), Word(b)) => Rc::ptr_eq(a, b),
             (Function(a), Function(b)) => a == b,
-            (ByteCode(a), ByteCode(b)) => Rc::ptr_eq(a, b),
             (List(a), List(b)) => Rc::ptr_eq(a, b),
             (String(a), String(b)) => Rc::ptr_eq(a, b),
             (Table(a), Table(b)) => Rc::ptr_eq(a, b),
@@ -212,22 +208,6 @@ impl Object {
             _ => Err(ErrorKind::TypeError(format!("{:?} is no string", self)).into()),
         }
     }
-
-    pub fn try_into_rc_quotation(self) -> Result<Rc<ByteCode>> {
-        match self {
-            Object::ByteCode(vec) => Ok(vec),
-            _ => Err(ErrorKind::TypeError(format!("{:?} is no quotation", self)).into()),
-        }
-    }
-
-    pub fn try_as_quotation_mut(&mut self) -> Result<&mut ByteCode> {
-        match self {
-            Object::ByteCode(vec) => {
-                Rc::get_mut(vec).ok_or_else(|| ErrorKind::OwnershipError.into())
-            }
-            _ => Err(ErrorKind::TypeError(format!("{:?} is not a quotation", self)).into()),
-        }
-    }
 }
 
 impl ObjectInterface for Object {
@@ -244,7 +224,6 @@ impl ObjectInterface for Object {
             Object::False => "False".to_string(),
             Object::True => "True".to_string(),
             Object::Word(id) => format!("{}", id),
-            Object::ByteCode(q) => format!("[ {} ]", q),
             Object::Function(func) => format!("<{:?}>", func),
             Object::List(list) => format!("{:?}", list),
             Object::String(rcs) => format!("{:?}", rcs),
@@ -272,7 +251,7 @@ impl ObjectInterface for Object {
 
     fn is_callable(&self) -> bool {
         match self {
-            Object::Word(_) | Object::Function(_) | Object::ByteCode(_) => true,
+            Object::Word(_) | Object::Function(_) => true,
             Object::Table(dynobj) => dynobj.is_callable(),
             _ => false,
         }
@@ -290,7 +269,6 @@ impl ObjectInterface for Object {
         match self {
             Object::Word(id) => id.word.inner().call(state),
             Object::Function(f) => f.call(state),
-            Object::ByteCode(code) => code.run(state),
             Object::Table(dynobj) => dynobj.call(state),
             Object::List(list) => {
                 for item in &**list {
