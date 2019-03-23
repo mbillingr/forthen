@@ -38,6 +38,19 @@ impl State {
         }
     }
 
+    /// create a copy of the current state with an empty stack
+    pub fn substate(&self) -> Self {
+        State {
+            input_tokens: VecDeque::new(),
+            stack: vec![],
+            frames: vec![],
+            current_module: self.current_module.clone(),
+            factory: ObjectFactory::new(),
+            scopes: vec![],
+            root_module: self.root_module.clone(),
+        }
+    }
+
     pub fn run(&mut self, input: &str) -> Result<()> {
         self.input_tokens
             .extend(tokenize(input).map(str::to_string));

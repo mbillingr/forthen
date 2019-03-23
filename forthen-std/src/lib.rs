@@ -7,6 +7,7 @@ mod stack;
 mod stdlib;
 mod table;
 mod tier0;
+mod timeit;
 
 pub use branch::branch;
 pub use complex::complex;
@@ -14,9 +15,10 @@ pub use loops::loops;
 pub use ops::ops;
 pub use scope::scope;
 pub use stack::stack;
+pub use stdlib::stdlib;
 pub use table::table;
 pub use tier0::tier0;
-pub use stdlib::stdlib;
+pub use timeit::timeit;
 
 #[cfg(test)]
 mod tests {
