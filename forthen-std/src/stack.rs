@@ -22,7 +22,7 @@ pub fn stack(state: &mut State) -> Result<()> {
     state.add_native_word("swap", "(a b -- b a)", State::swap);
     state.add_native_word("over", "(a b -- a b a)", State::over);
     state.add_native_word("rot", "(a b c -- b c a)", State::rot);
-    state.add_native_word("2dup", "(a -- a a)", |state|{
+    state.add_native_word("2dup", "(a -- a a)", |state| {
         let b = state.pop()?;
         let a = state.pop()?;
         state.push(a.clone())?;
