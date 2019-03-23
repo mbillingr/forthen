@@ -4,6 +4,7 @@ mod loops;
 mod ops;
 mod scope;
 mod stack;
+mod stdlib;
 mod table;
 mod tier0;
 
@@ -15,6 +16,7 @@ pub use scope::scope;
 pub use stack::stack;
 pub use table::table;
 pub use tier0::tier0;
+pub use stdlib::stdlib;
 
 #[cfg(test)]
 mod tests {

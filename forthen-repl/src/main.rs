@@ -9,13 +9,7 @@ use std::fs;
 
 fn main() {
     let mut state = State::new();
-    tier0(&mut state).unwrap();
-    branch(&mut state).unwrap();
-    scope(&mut state).unwrap();
-    stack(&mut state).unwrap();
-    ops(&mut state).unwrap();
-    table(&mut state).unwrap();
-    loops(&mut state).unwrap();
+    stdlib(&mut state).unwrap();
 
     /*state.add_native_word("std:tier0", "( -- )", |state| tier0(state));
     state.add_native_word("std:tier1", "( -- )", |state| tier1(state));
