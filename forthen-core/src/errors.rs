@@ -33,5 +33,9 @@ error_chain! {
         AttributeError(t: String) {
             display("Attribute Error: {}", t)
         }
+
+        IndexError(i: usize, l: usize) {
+            display("Index Error: {} but length is {}", i, l)
+        }
     }
 }

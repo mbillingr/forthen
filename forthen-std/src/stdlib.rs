@@ -1,4 +1,5 @@
 use super::branch::branch;
+use super::list::list;
 use super::loops::loops;
 use super::ops::ops;
 use super::scope::scope;
@@ -15,6 +16,7 @@ pub fn stdlib(state: &mut State) -> Result<()> {
     state.new_mod("std".to_string())?;
 
     branch(state)?;
+    list(state)?;
     loops(state)?;
     ops(state)?;
     scope(state)?;
@@ -25,6 +27,7 @@ pub fn stdlib(state: &mut State) -> Result<()> {
     state.run(
         "
         USE branch:
+        USE list:
         USE loop:
         USE ops:
         USE scope:

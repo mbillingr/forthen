@@ -1,5 +1,6 @@
 mod branch;
 mod complex;
+mod list;
 mod loops;
 mod ops;
 mod scope;
@@ -11,6 +12,7 @@ mod timeit;
 
 pub use branch::branch;
 pub use complex::complex;
+pub use list::list;
 pub use loops::loops;
 pub use ops::ops;
 pub use scope::scope;
