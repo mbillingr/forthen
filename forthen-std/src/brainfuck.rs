@@ -17,13 +17,13 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
             - need one more word to use quotations as [ ] loops )
 
         : init (-- tape pos)
-            {}
-            0 30000 [ repr 0 set_attribute ] for
+            0 list-make
+            30000 [ 0 push-back ] repeat
             0
         ;
 
-        : query   (tape pos -- tape pos x)   dup repr rot swap get_attribute rot rot swap rot ;
-        :: update   (tape pos x -- tape' pos)   swap dup repr swap set ptr swap set_attribute get ptr ;
+        :: query   (tape pos -- tape pos x)   set pos get pos list-get get pos swap ;
+        :: update   (tape pos x -- tape' pos)   set x set pos get pos get x list-set get pos ;
 
         : > (tape pos -- tape pos') 1 + ;
         : < (tape pos -- tape pos') 1 - ;

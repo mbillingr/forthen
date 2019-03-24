@@ -78,8 +78,8 @@ pub fn list(state: &mut State) -> Result<()> {
     });
 
     state.add_native_word("list-set", "(l i x -- l')", |state| {
-        let i = state.pop_i32()? as usize;
         let x = state.pop()?;
+        let i = state.pop_i32()? as usize;
         let list = state.top_mut()?.as_vec_mut()?;
         let len = list.len();
         *list
