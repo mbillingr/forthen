@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use crate::dictionary::{Entry, Word};
+use crate::dictionary::{Entry, Word, WordId};
 use crate::errors::*;
 use crate::module::ModuleRef;
 use crate::object_factory::{ObjectFactory, StringManager};
@@ -286,6 +286,15 @@ impl State {
 
     pub fn begin_compile(&mut self) {
         self.push(Object::List(Rc::new(Vec::new()))).unwrap();
+    }
+
+    pub fn compile_object(&mut self, obj: Object) -> Result<()> {
+        self.top_mut()?.as_vec_mut()?.push(obj);
+        Ok(())
+    }
+
+    pub fn compile_word(&mut self, word: WordId) -> Result<()> {
+        self.compile_object(Object::Word(word))
     }
 
     pub fn dup(&mut self) -> Result<()> {

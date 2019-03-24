@@ -1,0 +1,32 @@
+USE std:
+
+(
+    This INTERPRET parse word reads tokens from the input until it encounters a ";".
+    It first tries to parse the token as a literal. If that succeeds, the literal is
+    baked into the current definition. Otherwise it tries to look up the token and
+    bakes the result into the current definition.
+    This is basically a replication of what the native interpreter does.
+)
+
+: none? (obj -- obj ?) dup None same? ;
+
+: try-lookup (list token -- list')
+    dup lookup
+    none? [ drop "Unknown Word: " swap + error ] [ ] if
+;
+
+SYNTAX: interpret
+    next_token
+
+    [ dup ";" != ]
+    [
+        dup parse
+        none? [ drop try-lookup ] [ ] if
+        swap drop bake
+
+        next_token
+    ]
+    while
+
+    drop
+;
