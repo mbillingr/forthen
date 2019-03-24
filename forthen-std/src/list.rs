@@ -2,11 +2,24 @@ use forthen_core::errors::*;
 use forthen_core::objects::object::Object;
 use forthen_core::objects::prelude::*;
 use forthen_core::State;
+use forthen_core::object_factory::StringManager;
 use std::rc::Rc;
 
 /// Load basic operations into the dictionary
 pub fn list(state: &mut State) -> Result<()> {
     state.new_mod("list".to_string())?;
+
+    state.add_native_word("str-to-list", "(s -- l)", |state| {
+        let s = state.pop_string()?;
+        let mut list = vec![];
+
+        for ch in s.chars() {
+            let obj = state.factory.get_string(ch.to_string());
+            list.push(Object::String(obj));
+        }
+
+        state.push(Object::List(Rc::new(list)))
+    });
 
     state.add_native_word("list-make", "(* n -- l)", |state| {
         let n = state.pop_i32()?;
@@ -35,6 +48,22 @@ pub fn list(state: &mut State) -> Result<()> {
         }
         state.push(n as i32)?;
         Ok(())
+    });
+
+    state.add_native_word("list-reverse", "(l -- l')", |state|{
+        let list = state.top_mut()?.as_vec_mut()?;
+        list.reverse();
+        Ok(())
+    });
+
+    state.add_native_word("list-empty?", "(l -- l ?)", |state|{
+        let empty = state.top()?.as_slice()?.is_empty();
+        state.push(empty)
+    });
+
+    state.add_native_word("list-len", "(l -- l n)", |state|{
+        let l = state.top()?.as_slice()?.len();
+        state.push(l as i32)
     });
 
     state.add_native_word("list-get", "(l i -- l x)", |state| {

@@ -69,49 +69,86 @@ pub fn scope(state: &mut State) -> Result<()> {
         Ok(())
     });
 
-    state.add_native_parse_word("::", move |state| {
-        // todo: parse stack effect from word definition and compare against derived stack effect?
+    {
+        let push_frame = push_frame.clone();
+        let pop_frame = pop_frame.clone();
 
-        let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        state.add_native_parse_word("::", move |state| {
+            // todo: parse stack effect from word definition and compare against derived stack effect?
 
-        let mut se = state.next_token().ok_or(ErrorKind::EndOfInput)?;
-        if se != "(" {
-            return Err(ErrorKind::ExpectedStackEffect.into());
-        }
-        loop {
-            let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
-            se += " ";
-            se += &token;
-            if token == ")" {
-                break;
+            let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+
+            let mut se = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+            if se != "(" {
+                return Err(ErrorKind::ExpectedStackEffect.into());
             }
-        }
+            loop {
+                let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+                se += " ";
+                se += &token;
+                if token == ")" {
+                    break;
+                }
+            }
 
-        state.scopes.push(CompilerScope::new());
+            state.scopes.push(CompilerScope::new());
 
-        state.begin_compile();
+            state.begin_compile();
 
-        if let Err(e) = state.parse_until(";") {
-            state.pop().unwrap();
-            state.scopes.pop().unwrap();
-            return Err(e);
-        }
+            if let Err(e) = state.parse_until(";") {
+                state.pop().unwrap();
+                state.scopes.pop().unwrap();
+                return Err(e);
+            }
 
-        let scope = state.scopes.pop().unwrap();
-        let n_vars = scope.len() as i32;
+            let scope = state.scopes.pop().unwrap();
+            let n_vars = scope.len() as i32;
 
-        let mut quot = Vec::new();
-        quot.push(n_vars.into());
-        quot.push(Object::Word(push_frame.clone()));
-        quot.extend(
-            Rc::try_unwrap(state.pop()?.into_rc_vec()?).or(Err(ErrorKind::OwnershipError))?,
-        );
-        quot.push(n_vars.into());
-        quot.push(Object::Word(pop_frame.clone()));
+            let mut quot = Vec::new();
+            quot.push(n_vars.into());
+            quot.push(Object::Word(push_frame.clone()));
+            quot.extend(
+                Rc::try_unwrap(state.pop()?.into_rc_vec()?).or(Err(ErrorKind::OwnershipError))?,
+            );
+            quot.push(n_vars.into());
+            quot.push(Object::Word(pop_frame.clone()));
 
-        state.add_compound_word(name, se, Object::List(Rc::new(quot)));
-        Ok(())
-    });
+            state.add_compound_word(name, se, Object::List(Rc::new(quot)));
+            Ok(())
+        });
+    }
+
+    {
+        let push_frame = push_frame.clone();
+        let pop_frame = pop_frame.clone();
+
+        state.add_native_parse_word("SYNTAX::", move |state| {
+            let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+
+            state.scopes.push(CompilerScope::new());
+            state.begin_compile();
+
+            if let Err(e) = state.parse_until(";") {
+                state.pop().unwrap();
+                return Err(e);
+            }
+
+            let scope = state.scopes.pop().unwrap();
+            let n_vars = scope.len() as i32;
+
+            let mut quot = Vec::new();
+            quot.push(n_vars.into());
+            quot.push(Object::Word(push_frame.clone()));
+            quot.extend(
+                Rc::try_unwrap(state.pop()?.into_rc_vec()?).or(Err(ErrorKind::OwnershipError))?,
+            );
+            quot.push(n_vars.into());
+            quot.push(Object::Word(pop_frame.clone()));
+
+            state.add_compound_parse_word(name, Object::List(Rc::new(quot)));
+            Ok(())
+        });
+    }
 
     state.exit_mod().unwrap();
 

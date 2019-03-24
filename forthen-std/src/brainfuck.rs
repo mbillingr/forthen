@@ -7,15 +7,12 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
         "
         MODULE brainfuck
 
-        USE :loop:
-        USE :ops:
-        USE :scope:
-        USE :stack:
-        USE :table:
+        USE :std:
 
         (limitations:
             - no , command for input
-            - individual commands must be separated by spaces because they are implemented as words
+            - individual commands must be separated by spaces because they are implemented as words,
+              or they must be preceded by the BF parse word
             - storing tape in a table because we lack arrays
             - need one more word to use quotations as [ ] loops )
 
@@ -36,27 +33,50 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
 
         :: loop   (tape pos -- tape' pos')   set inner [ query 0 != ] [ get inner call ] while ;
 
+        : insert-cmd (ops cmds current -- ops' cmds) lookup rot swap bake swap ;
+
+        SYNTAX: compare dup next_token == ;
+
+        SYNTAX: BF
+            next_token str-to-list
+            [ list-empty? not ]
+            [
+                pop-front
+                [
+                    [ [ dup \"<\" == ] [ insert-cmd ] ]
+                    [ [ dup \">\" == ] [ insert-cmd ] ]
+                    [ [ dup \"+\" == ] [ insert-cmd ] ]
+                    [ [ dup \"-\" == ] [ insert-cmd ] ]
+                    [ [ dup \".\" == ] [ insert-cmd ] ]
+                ] cond
+            ] while
+            drop
+        ;
+
 
         (Brainfuck Example)
 
-        init
-        + + + + + + + + + +
-        [
-          > + + + + + + + > + + + + + + + + + + > + + + > + < < < < -
-        ] loop
-        > + + .                              (H)
-        > + .                                (e)
-        + + + + + + + . .                    (ll)
-        + + + .                              (o)
-        > + + .                              ( )
-        < < + + + + + + + + + + + + + + + .  (W)
-        > .                                  (o)
-        + + + .                              (r)
-        - - - - - - .                        (l)
-        - - - - - - - - .                    (d)
-        > + .                                (!)
-        > .                                  (LF)
-        + + + .                              (CR)
+        : hello   (tape pos -- tape' pos')
+            + + + + + + + + + +
+            [
+               BF >+++++++>++++++++++>+++>+<<<<-
+            ] loop
+            BF >++.                (H)
+            BF >+.                 (e)
+            BF +++++++..           (ll)
+            BF +++.                (o)
+            BF >++.                ( )
+            BF <<+++++++++++++++.  (W)
+            BF >.                  (o)
+            BF +++.                (r)
+            BF ------.             (l)
+            BF --------.           (d)
+            BF >+.                 (!)
+            BF >.                  (LF)
+            BF +++.                (CR)
+        ;
+
+        init hello
         drop drop
 
         END-MODULE

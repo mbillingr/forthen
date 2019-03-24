@@ -196,6 +196,15 @@ pub fn tier0(state: &mut State) -> Result<()> {
         state.compile_word(word)
     });
 
+    state.add_native_parse_word("NOW", |state| {
+        let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        let word = state
+            .current_module
+            .lookup(&token)
+            .ok_or_else(|| ErrorKind::UnknownWord(token))?;
+        word.word.inner().call(state)
+    });
+
     Ok(())
 }
 
