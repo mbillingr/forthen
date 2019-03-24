@@ -1,0 +1,14 @@
+USE std:
+USE std:timeit:timeit
+
+
+(2dup duplicates the pair of top elements on the stack.
+ We compare the performance of different implementations.)
+
+: 2dup_a (a b -- a b a b) over over ;
+:: 2dup_b (a b -- a b a b) get a get b set a set b set a set b ;
+
+"     2dup a: " emit [ 1 2 ] [ 2dup_a ] timeit
+"2dup inline: " emit [ 1 2 ] [ over over ] timeit
+"     2dup b: " emit [ 1 2 ] [ 2dup_b ] timeit
+"2dup native: " emit [ 1 2 ] [ 2dup ] timeit

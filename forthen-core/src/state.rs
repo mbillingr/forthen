@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use crate::dictionary::{Entry, Word};
+use crate::dictionary::{Entry, Word, WordId};
 use crate::errors::*;
 use crate::module::ModuleRef;
 use crate::object_factory::{ObjectFactory, StringManager};
@@ -35,6 +35,19 @@ impl State {
             factory: ObjectFactory::new(),
             scopes: vec![],
             root_module,
+        }
+    }
+
+    /// create a copy of the current state with an empty stack
+    pub fn substate(&self) -> Self {
+        State {
+            input_tokens: VecDeque::new(),
+            stack: vec![],
+            frames: vec![],
+            current_module: self.current_module.clone(),
+            factory: ObjectFactory::new(),
+            scopes: vec![],
+            root_module: self.root_module.clone(),
         }
     }
 
@@ -273,6 +286,15 @@ impl State {
 
     pub fn begin_compile(&mut self) {
         self.push(Object::List(Rc::new(Vec::new()))).unwrap();
+    }
+
+    pub fn compile_object(&mut self, obj: Object) -> Result<()> {
+        self.top_mut()?.as_vec_mut()?.push(obj);
+        Ok(())
+    }
+
+    pub fn compile_word(&mut self, word: WordId) -> Result<()> {
+        self.compile_object(Object::Word(word))
     }
 
     pub fn dup(&mut self) -> Result<()> {

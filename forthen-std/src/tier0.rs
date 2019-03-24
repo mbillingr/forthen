@@ -10,8 +10,17 @@ pub fn tier0(state: &mut State) -> Result<()> {
     state.add_native_parse_word(";", |_| Err(ErrorKind::UnexpectedDelimiter(";").into()));
     state.add_native_parse_word("]", |_| Err(ErrorKind::UnexpectedDelimiter("]").into()));
 
+    state.add_native_word("None", "( -- none)", |state| state.push(Object::None));
+    state.add_native_word("True", "( -- none)", |state| state.push(Object::True));
+    state.add_native_word("False", "( -- none)", |state| state.push(Object::False));
+
+    state.add_native_word("error", "(msg -- )", |state| {
+        let msg = state.pop_string()?;
+        Err(ErrorKind::RuntimeError(msg).into())
+    });
+
     state.add_native_word("next_token", "( -- token)", |state| {
-        let token = state.next_token().expect("token");
+        let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
         let token = state.factory.get_string(token);
         state.push(token)?;
         Ok(())
@@ -155,6 +164,36 @@ pub fn tier0(state: &mut State) -> Result<()> {
     state.add_native_word("call", "(..a func(..a -- ..b) -- ..b)", |state| {
         let func = state.pop()?;
         func.call(state)
+    });
+
+    state.add_native_word("parse", "(str -- ?obj)", |state| {
+        let token = state.pop_string()?;
+        match state.factory.parse(&token) {
+            Some(obj) => state.push(obj),
+            None => state.push(Object::None),
+        }
+    });
+
+    state.add_native_word("lookup", "(str -- ?word)", |state| {
+        let token = state.pop_string()?;
+        match state.current_module.lookup(&token) {
+            Some(entry) => state.push(Object::Word(entry)),
+            None => state.push(Object::None),
+        }
+    });
+
+    state.add_native_word("bake", "(list obj -- list')", |state| {
+        let obj = state.pop()?;
+        state.compile_object(obj)
+    });
+
+    state.add_native_parse_word("DELAY", |state| {
+        let token = state.next_token().ok_or(ErrorKind::EndOfInput)?;
+        let word = state
+            .current_module
+            .lookup(&token)
+            .ok_or_else(|| ErrorKind::UnknownWord(token))?;
+        state.compile_word(word)
     });
 
     Ok(())
