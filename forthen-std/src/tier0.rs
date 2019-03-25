@@ -169,7 +169,14 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
     state.add_native_word("bake", "(list obj -- list')", |state| {
         match state.current_mode() {
-            Mode::Eval => Ok(()),
+            Mode::Eval => {
+                let obj = state.pop()?;
+                if obj.is_callable() {
+                    obj.call(state)
+                } else {
+                    state.push(obj)
+                }
+            },
             Mode::Compile => {
                 let code = state.pop()?;
                 state.compile_object(code)

@@ -33,12 +33,14 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
 
         :: loop   (tape pos -- tape' pos')   set inner [ query 0 != ] [ get inner call ] while ;
 
-        : insert-cmd (ops cmds current -- ops' cmds) lookup rot swap bake swap ;
+        :: insert-cmd (ops cmds current -- ops' cmds) swap set cmds lookup bake get cmds ;
 
-        SYNTAX: compare dup next_token == ;
-
-        SYNTAX: BF
-            next_token str-to-list
+        (todo: in order to parse [ ... ] loops we will need
+            a. either macros (hard?) or
+            b. or compilation words (easy?)
+        )
+        : process-bf-token (ops token -- ops')
+            str-to-list
             [ list-empty? not ]
             [
                 pop-front
@@ -48,10 +50,24 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
                     [ [ dup \"+\" == ] [ insert-cmd ] ]
                     [ [ dup \"-\" == ] [ insert-cmd ] ]
                     [ [ dup \".\" == ] [ insert-cmd ] ]
+                    [ True [ drop ] ]
                 ] cond
             ] while
             drop
         ;
+
+        SYNTAX: BF next_token process-bf-token ;
+
+        SYNTAX: BF-BEGIN
+            next_token
+            [ dup \"BF-END\" != ]
+            [
+                process-bf-token
+                next_token
+            ]
+            while
+            drop
+         ;
 
 
         (Brainfuck Example)
@@ -61,19 +77,21 @@ pub fn brainfuck(state: &mut State) -> Result<()> {
             [
                BF >+++++++>++++++++++>+++>+<<<<-
             ] loop
-            BF >++.                (H)
-            BF >+.                 (e)
-            BF +++++++..           (ll)
-            BF +++.                (o)
-            BF >++.                ( )
-            BF <<+++++++++++++++.  (W)
-            BF >.                  (o)
-            BF +++.                (r)
-            BF ------.             (l)
-            BF --------.           (d)
-            BF >+.                 (!)
-            BF >.                  (LF)
-            BF +++.                (CR)
+            BF-BEGIN
+                >++.                (H)
+                >+.                 (e)
+                +++++++..           (ll)
+                +++.                (o)
+                >++.                ( )
+                <<+++++++++++++++.  (W)
+                >.                  (o)
+                +++.                (r)
+                ------.             (l)
+                --------.           (d)
+                >+.                 (!)
+                >.                  (LF)
+                +++.                (CR)
+            BF-END
         ;
 
         init hello
