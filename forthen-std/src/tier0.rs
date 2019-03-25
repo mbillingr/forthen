@@ -1,7 +1,7 @@
 use forthen_core::errors::*;
 use forthen_core::object_factory::StringManager;
 use forthen_core::objects::prelude::*;
-use forthen_core::State;
+use forthen_core::{State, Mode};
 
 /// Load language tier 0 into the dictionary
 ///
@@ -72,12 +72,8 @@ pub fn tier0(state: &mut State) -> Result<()> {
 
     state.add_native_parse_word("SYNTAX:", |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
-        state.begin_compile();
 
-        if let Err(e) = state.parse_until(";") {
-            state.pop().unwrap();
-            return Err(e);
-        }
+        state.compile(|state| state.parse_until(";"))?;
 
         let obj = state.pop()?;
         state.add_compound_parse_word(name, obj);
@@ -87,12 +83,7 @@ pub fn tier0(state: &mut State) -> Result<()> {
     state.add_native_parse_word("LET:", |state| {
         let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
-        state.begin_compile();
-
-        if let Err(e) = state.parse_until(";") {
-            state.pop().unwrap();
-            return Err(e);
-        }
+        state.compile(|state| state.parse_until(";"))?;
 
         let obj = state.pop()?;
         obj.call(state)?;
@@ -121,30 +112,24 @@ pub fn tier0(state: &mut State) -> Result<()> {
             }
         }
 
-        state.begin_compile();
-
-        if let Err(e) = state.parse_until(";") {
-            state.pop().unwrap();
-            return Err(e);
-        }
+        state.compile(|state| state.parse_until(";"))?;
 
         let quot = state.pop()?;
-
         state.add_compound_word(name, se, quot);
         Ok(())
     });
 
     state.add_native_parse_word("[", |state| {
-        state.begin_compile();
+        state.compile(|state| state.parse_until("]"))?;
 
-        if let Err(e) = state.parse_until("]") {
-            state.pop().unwrap();
-            return Err(e);
+        match state.current_mode() {
+            Mode::Eval => {}
+            Mode::Compile => {
+                let code = state.pop()?;
+                state.compile_object(code)?;
+            }
         }
 
-        let code = state.pop()?;
-
-        state.top_mut()?.as_vec_mut()?.push(code);
         Ok(())
     });
 
@@ -183,8 +168,13 @@ pub fn tier0(state: &mut State) -> Result<()> {
     });
 
     state.add_native_word("bake", "(list obj -- list')", |state| {
-        let obj = state.pop()?;
-        state.compile_object(obj)
+        match state.current_mode() {
+            Mode::Eval => Ok(()),
+            Mode::Compile => {
+                let code = state.pop()?;
+                state.compile_object(code)
+            }
+        }
     });
 
     state.add_native_parse_word("DELAY", |state| {
@@ -236,13 +226,11 @@ mod tests {
         let state = &mut State::new();
         tier0(state).unwrap();
 
-        state.add_native_word("-rot", "(a b c -- c a b)", |state| {
-            let a = state.pop()?;
+        state.add_native_word("swap", "(a b -- b a)", |state| {
             let b = state.pop()?;
-            let c = state.pop()?;
-            state.push(a)?;
-            state.push(c)?;
+            let a = state.pop()?;
             state.push(b)?;
+            state.push(a)?;
             Ok(())
         });
         state.add_native_word(".s", "( -- )", |state| {
@@ -251,7 +239,7 @@ mod tests {
         });
 
         state.run("123").unwrap(); // push sentinel value on stack
-        state.run("SYNTAX: the-answer 42 -rot ;").unwrap(); // define new parse word that puts a number deep in the stack
+        state.run("SYNTAX: the-answer 42 swap ;").unwrap(); // define new parse word that puts a number on the stack below the currently compiled function
         state.run(": nop ( -- ) the-answer ; .s").unwrap(); // define a new word
         assert_eq!(state.pop_i32().unwrap(), 42); // the number should end up on the stack during word definition
         state.run("nop").unwrap(); // make sure the new word does nothing

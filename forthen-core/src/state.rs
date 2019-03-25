@@ -10,7 +10,18 @@ use crate::objects::{callable::Callable, prelude::*};
 use crate::parsing::tokenize;
 use crate::scope::CompilerScope;
 use crate::stack_effects::{IntoStackEffect, StackEffect};
-use crate::vm::ByteCode;
+
+#[derive(Debug, Copy, Clone)]
+pub enum Mode {
+    Eval,
+    Compile,
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Eval
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct State {
@@ -21,6 +32,7 @@ pub struct State {
     pub scopes: Vec<CompilerScope>,
     pub current_module: ModuleRef,
     root_module: ModuleRef,
+    mode: Vec<Mode>,
 }
 
 /// API
@@ -33,12 +45,13 @@ impl State {
             frames: vec![],
             current_module: root_module.clone(),
             factory: ObjectFactory::new(),
+            mode: vec![],
             scopes: vec![],
             root_module,
         }
     }
 
-    /// create a copy of the current state with an empty stack
+    /// create new state that shares modules with the current state
     pub fn substate(&self) -> Self {
         State {
             input_tokens: VecDeque::new(),
@@ -46,35 +59,33 @@ impl State {
             frames: vec![],
             current_module: self.current_module.clone(),
             factory: ObjectFactory::new(),
+            mode: vec![],
             scopes: vec![],
             root_module: self.root_module.clone(),
         }
     }
 
+    pub fn current_mode(&self) -> Mode {
+        self.mode.last().cloned().unwrap_or_else(|| Mode::default())
+    }
+
     pub fn run(&mut self, input: &str) -> Result<()> {
         self.input_tokens
             .extend(tokenize(input).map(str::to_string));
-        self.begin_compile();
 
         while let Some(token) = self.next_token() {
-            if let Err(e) = self.parse_token(&token) {
-                // clean up in case of error
-                self.pop().unwrap();
-                self.input_tokens.clear();
-                return Err(e);
+            match self.parse_token(&token) {
+                Ok(_) => {}
+                err @ Err(_) => {
+                    self.input_tokens.clear();
+                    return err
+                }
             }
         }
 
-        self.pop()?.call(self)
+        Ok(())
     }
-    /*
-        pub fn run_sequence(&mut self, ops: &[Object]) -> Result<()> {
-            for op in ops {
-                op.call(self)?;
-            }
-            Ok(())
-        }
-    */
+
     pub fn next_token(&mut self) -> Option<String> {
         self.input_tokens.pop_front()
     }
@@ -95,11 +106,14 @@ impl State {
         //       so we always do them both now, and future profiling will show which to do first in the future
         let literal = self.factory.parse(&token);
         let word = self.current_module.lookup(&token);
-        match (literal, word) {
-            (None, None) => return Err(ErrorKind::UnknownWord(token.to_string()).into()),
-            (Some(_), Some(_)) => return Err(ErrorKind::AmbiguousWord(token.to_string()).into()),
-            (Some(obj), None) => self.top_mut()?.as_vec_mut()?.push(obj),
-            (None, Some(entry)) => match &entry.word {
+        let mode = self.mode.last().unwrap_or(&Mode::Eval);
+        match (mode, literal, word) {
+            (_, None, None) => return Err(ErrorKind::UnknownWord(token.to_string()).into()),
+            (_, Some(_), Some(_)) => return Err(ErrorKind::AmbiguousWord(token.to_string()).into()),
+            (Mode::Eval, Some(obj), None) => self.push(obj)?,
+            (Mode::Compile, Some(obj), None) => self.top_mut()?.as_vec_mut()?.push(obj),
+            (Mode::Eval, None, Some(entry)) => entry.word.inner().call(self)?,
+            (Mode::Compile, None, Some(entry)) => match &entry.word {
                 Word::Word(_) => {
                     //let op = Opcode::call_word(entry.clone());
                     let op = Object::Word(entry);
@@ -150,12 +164,6 @@ impl State {
         );
     }
 
-    // todo: this function should almost certainly not be here at this place...
-    pub fn compile(&self, quot: Rc<ByteCode>) -> Callable {
-        // todo: a word made of pure words only should become a pure word too
-        Callable::new_const(move |state| quot.run(state))
-    }
-
     pub fn add_compound_word<S>(&mut self, name: S, stack_effect: impl IntoStackEffect, obj: Object)
     where
         ObjectFactory: StringManager<S>,
@@ -165,8 +173,6 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                //source: Some(quot.clone()),
-                //word: Word::Word(Object::Function(self.compile(quot))),
                 source: None,
                 word: Word::Word(obj),
                 stack_effect: stack_effect.into_stack_effect(),
@@ -183,8 +189,6 @@ impl State {
             name.clone(),
             Entry {
                 name,
-                //source: Some(quot.clone()),
-                //word: Word::ParsingWord(Object::Function(self.compile(quot))),
                 source: None,
                 word: Word::ParsingWord(obj),
                 stack_effect: StackEffect::new_mod("acc"),
@@ -284,9 +288,43 @@ impl State {
         }
     }
 
-    pub fn begin_compile(&mut self) {
+    pub fn compile<F: FnOnce(&mut Self) -> Result<()>>(&mut self, func: F) -> Result<()> {
+        self.mode.push(Mode::Compile);
+        self.push(Object::List(Rc::new(Vec::new()))).unwrap();
+        match func(self) {
+            Ok(_) => {
+                self.mode.pop();
+                Ok(())
+            },
+            err @ Err(_) => {
+                self.pop().unwrap();
+                self.mode.pop();
+                err
+            }
+        }
+    }
+
+    pub fn compile_scoped<F: FnOnce(&mut Self) -> Result<()>>(&mut self, func: F) -> Result<CompilerScope> {
+        self.scopes.push(CompilerScope::new());
+        match self.compile(func) {
+            Ok(_) => {
+                self.scopes.pop().ok_or_else(||ErrorKind::Msg("Could not get scope".to_string()).into())
+            },
+            Err(e) => {
+                self.scopes.pop();
+                Err(e)
+            }
+        }
+    }
+
+    /*pub fn begin_compile(&mut self) {
+        self.mode.push(Mode::Compile);
         self.push(Object::List(Rc::new(Vec::new()))).unwrap();
     }
+
+    pub fn end_compile(&mut self) {
+        self.mode.pop();
+    }*/
 
     pub fn compile_object(&mut self, obj: Object) -> Result<()> {
         self.top_mut()?.as_vec_mut()?.push(obj);

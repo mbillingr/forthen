@@ -1,6 +1,5 @@
 use forthen_core::errors::*;
 use forthen_core::objects::prelude::*;
-use forthen_core::CompilerScope;
 use forthen_core::Object;
 use forthen_core::State;
 use std::rc::Rc;
@@ -91,17 +90,7 @@ pub fn scope(state: &mut State) -> Result<()> {
                 }
             }
 
-            state.scopes.push(CompilerScope::new());
-
-            state.begin_compile();
-
-            if let Err(e) = state.parse_until(";") {
-                state.pop().unwrap();
-                state.scopes.pop().unwrap();
-                return Err(e);
-            }
-
-            let scope = state.scopes.pop().unwrap();
+            let scope = state.compile_scoped(|state| state.parse_until(";"))?;
             let n_vars = scope.len() as i32;
 
             let mut quot = Vec::new();
@@ -125,15 +114,7 @@ pub fn scope(state: &mut State) -> Result<()> {
         state.add_native_parse_word("SYNTAX::", move |state| {
             let name = state.next_token().ok_or(ErrorKind::EndOfInput)?;
 
-            state.scopes.push(CompilerScope::new());
-            state.begin_compile();
-
-            if let Err(e) = state.parse_until(";") {
-                state.pop().unwrap();
-                return Err(e);
-            }
-
-            let scope = state.scopes.pop().unwrap();
+            let scope = state.compile_scoped(|state| state.parse_until(";"))?;
             let n_vars = scope.len() as i32;
 
             let mut quot = Vec::new();
