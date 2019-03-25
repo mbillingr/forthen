@@ -19,7 +19,7 @@ pub use errors::{Error, Result};
 pub use objects::prelude::*;
 pub use scope::CompilerScope;
 pub use stack_effects::{IntoStackEffect, StackEffect};
-pub use state::State;
+pub use state::{Mode, State};
 pub use vm::{ByteCode, Opcode};
 
 #[cfg(test)]

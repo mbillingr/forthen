@@ -65,7 +65,9 @@ fn main() {
         println!();
         print_stack(&mut state, 70);
 
-        match rl.readline(">> ") {
+        let prompt = &format!("{:?} >> ", state.current_mode());
+
+        match rl.readline(prompt) {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 match state.run(&line) {

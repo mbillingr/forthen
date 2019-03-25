@@ -92,8 +92,3 @@ pub fn list(state: &mut State) -> Result<()> {
 
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}
